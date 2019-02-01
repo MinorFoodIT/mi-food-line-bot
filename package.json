@@ -1,0 +1,31 @@
+{
+  "name": "untitled",
+  "version": "0.0.0",
+  "private": true,
+  "scripts": {
+    "start": "node ./bin/www"
+  },
+  "dependencies": {
+    "@line/bot-sdk": "^6.4.0",
+    "async": "^2.6.1",
+    "axios": "^0.18.0",
+    "bluebird": "3.5.1",
+    "body-parser": "1.18.2",
+    "compression": "1.7.2",
+    "cookie-parser": "~1.4.3",
+    "cors": "2.8.4",
+    "debug": "~2.6.9",
+    "express": "~4.16.0",
+    "helmet": "3.12.0",
+    "http-status": "1.0.1",
+    "jsonfile": "^5.0.0",
+    "jsonpath": "^1.0.0",
+    "method-override": "^2.3.10",
+    "mongodb": "^3.1.13",
+    "mongoose": "5.4.7",
+    "morgan": "~1.9.0"
+  },
+  "devDependencies": {
+    "mongodb-memory-server": "^3.0.0"
+  }
+}
