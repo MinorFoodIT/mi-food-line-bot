@@ -4,18 +4,18 @@ const httpStatus = require('http-status');
 const APIError = require('../helpers/APIError');
 
 /**
- * Order Schema
+ * item Schema
  */
-const OrderSchema = new mongoose.Schema({
-    mode: {
+const ItemSchema = new mongoose.Schema({
+    itemNumber: {
         type: String,
         required: true
     },
-    brand: {
+    itemName: {
         type: String,
         required: true
     },
-    site: {
+    amount: {
         type: String,
         required: true
     },
@@ -23,25 +23,16 @@ const OrderSchema = new mongoose.Schema({
         type: String,
         required: true
     },
-    mobileNumber: {
-        type: String,
-        required: true,
-        match: [/^[0-9][0-9]{9}$/, 'The value of path {PATH} ({VALUE}) is not a valid mobile number.']
-    },
     storeCode:{
         type: String
     },
-    userName: {
-        type: String
-    },
-    transactionTime: {
+    note: {
         type: String
     },
     createdAt: {
         type: Date,
         default: Date.now
-    },
-    items:[]
+    }
 });
 
 /**
@@ -54,13 +45,13 @@ const OrderSchema = new mongoose.Schema({
 /**
  * Methods
  */
-OrderSchema.method({
+ItemSchema.method({
 });
 
 /**
  * Statics
  */
-OrderSchema.statics = {
+ItemSchema.statics = {
     /**
      * Get user
      * @param {ObjectId} id - The objectId of user.
@@ -96,4 +87,4 @@ OrderSchema.statics = {
 /**
  * @typedef Order
  */
-module.exports = mongoose.model('Order', OrderSchema);
+module.exports = mongoose.model('Item', ItemSchema);

@@ -1,0 +1,197 @@
+{
+  "type": "bubble",
+  "styles": {
+    "footer": {
+      "separator": true
+    }
+  },
+  "body": {
+    "type": "box",
+    "layout": "vertical",
+    "contents": [
+      {
+        "type": "box",
+        "layout": "baseline",
+        "contents": [
+          {
+            "type": "icon",
+            "url": "https://upload.wikimedia.org/wikipedia/commons/thumb/a/ae/Dairy_Queen_logo.svg/2000px-Dairy_Queen_logo.svg.png",
+            "size": "md",
+            "margin": "xl"
+          },
+          {
+            "type": "text",
+            "text": "Dairy Queen",
+            "weight": "bold",
+            "color": "#f43934",
+            "size": "md"
+          }
+        ]
+      },
+      {
+        "type": "text",
+        "text": "PZ Lab @Avani",
+        "weight": "bold",
+        "size": "xxl",
+        "margin": "md"
+      },
+      {
+        "type": "text",
+        "text": " ",
+        "size": "xs",
+        "color": "#aaaaaa",
+        "wrap": true
+      },
+      {
+        "type": "box",
+        "layout": "horizontal",
+        "margin": "xs",
+        "spacing": "sm",
+        "contents": [
+          {
+            "type": "text",
+            "text": "Server:",
+            "size": "sm",
+            "color": "#555555",
+            "flex": 0
+          },
+          {
+            "type": "text",
+            "text": "08/03/2019",
+            "size": "sm",
+            "color": "#111111",
+            "align": "end"
+          }
+        ]
+      },
+      {
+        "type": "box",
+        "layout": "horizontal",
+        "margin": "xs",
+        "spacing": "sm",
+        "contents": [
+          {
+            "type": "text",
+            "text": "Check/Order:",
+            "size": "sm",
+            "color": "#555555",
+            "flex": 0
+          },
+          {
+            "type": "text",
+            "text": "80002",
+            "size": "sm",
+            "color": "#111111",
+            "align": "end"
+          }
+        ]
+      },
+      {
+        "type": "box",
+        "layout": "horizontal",
+        "margin": "xs",
+        "spacing": "sm",
+        "contents": [
+          {
+            "type": "text",
+            "text": "Order Type:",
+            "size": "sm",
+            "color": "#555555",
+            "flex": 0
+          },
+          {
+            "type": "text",
+            "text": "DELIVERY",
+            "size": "sm",
+            "color": "#111111",
+            "align": "end"
+          }
+        ]
+      },
+      {
+        "type": "separator",
+        "margin": "sm"
+      },
+      {
+        "type": "text",
+        "text": "*** 1112Delivery ***",
+        "size": "sm",
+        "color": "#aaaaaa",
+        "margin": "xl",
+        "wrap": true
+      },
+      {
+        "type": "box",
+        "layout": "vertical",
+        "margin": "sm",
+        "spacing": "sm",
+        "contents": [
+          {
+            "type": "box",
+            "layout": "horizontal",
+            "contents": [
+              {
+                "type": "text",
+                "text": "DQ-BZ-MANGO STICKY (M)",
+                "size": "sm",
+                "color": "#555555",
+                "flex": 0
+              },
+              {
+                "type": "text",
+                "text": "50",
+                "size": "sm",
+                "color": "#111111",
+                "align": "end"
+              }
+            ]
+          },
+          {
+            "type": "box",
+            "layout": "horizontal",
+            "contents": [
+              {
+                "type": "text",
+                "text": "DQ-BZ-MANGO STICKY (XL)",
+                "size": "sm",
+                "color": "#555555",
+                "flex": 0
+              },
+              {
+                "type": "text",
+                "text": "95",
+                "size": "sm",
+                "color": "#111111",
+                "align": "end"
+              }
+            ]
+          },
+          {
+            "type": "box",
+            "layout": "horizontal",
+            "contents": [
+              {
+                "type": "text",
+                "text": "DQ-BZ-MANGO TRIPLE NUT(S)",
+                "size": "sm",
+                "color": "#555555",
+                "flex": 0
+              },
+              {
+                "type": "text",
+                "text": "40",
+                "size": "sm",
+                "color": "#111111",
+                "align": "end"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "type": "separator",
+        "margin": "xxl"
+      }
+    ]
+  }
+}

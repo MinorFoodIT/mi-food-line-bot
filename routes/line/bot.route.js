@@ -1,7 +1,7 @@
 const express   = require('express');
 const orderCtrl = require('./bot.order.controller');
 const lineCtrl  = require('./bot.line.controller');
-var config      = require('./../../config/config');
+var config      = require('./../../config/line.config');
 
 const jsonfile = require('jsonfile')
 var path = require('path');

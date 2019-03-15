@@ -1,6 +1,7 @@
 var express = require('express');
-var usersRouter = require('./user/users');
+//var usersRouter = require('./user/users');
 var lineRouter = require('./line/bot.route');
+var logger = require('./../config/winston')
 
 var router = express.Router();
 
@@ -10,12 +11,14 @@ router.get('/', function(req, res, next) {
 });
 
 /** GET /health-check - Check service health */
-router.get('/health-check', (req, res) =>
-    res.send('OK')
+router.get('/health-check', (req, res) => {
+      logger.info('health check')
+      res.send('OK')
+    }
 );
 
 // mount user routes at /users
-router.use('/users', usersRouter);
+//router.use('/users', usersRouter);
 
 // mount auth routes at /auth
 //router.use('/auth', authRoutes);
