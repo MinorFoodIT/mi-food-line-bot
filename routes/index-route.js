@@ -1,7 +1,7 @@
 var express = require('express');
 //var usersRouter = require('./user/users');
 var lineRouter = require('./line/bot.route');
-var logger = require('./../config/winston')
+var logger = require('./../config/winston')(__filename)
 
 var router = express.Router();
 
@@ -24,7 +24,7 @@ router.get('/health-check', (req, res) => {
 //router.use('/auth', authRoutes);
 
 // mount bot routes at /bot
-router.use('/bot', lineRouter);
+router.use('/v1/bot', lineRouter);
 
 
 module.exports = router;
