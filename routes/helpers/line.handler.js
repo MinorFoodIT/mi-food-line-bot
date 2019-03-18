@@ -5,6 +5,7 @@ const JSONParseError = require('@line/bot-sdk').JSONParseError;
 const HTTPError = require('@line/bot-sdk').HTTPError;
 const Client = require('@line/bot-sdk').Client;
 const client = new Client(config);
+var logger = require('./../../config/winston')(__filename)
 
 /**
  * Line check header signature

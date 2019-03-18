@@ -17,7 +17,7 @@ router.route('/webhook')
         lineCtrl.webhook
         );
 
-router.route('/:mode/:brand/:site')
+router.route('/1112delivery/:brand')
     /** POST /:brandId/:orderId - Create new order push message */
     .post(orderCtrl.ordering);
 

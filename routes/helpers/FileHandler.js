@@ -2,7 +2,7 @@ const jsonfile = require('jsonfile')
 const path = require('path')
 const json_file_extention = '.json'
 const Store = require('./../line/bot.store.model');
-var logger = require('./../../config/winston')
+var logger = require('./../../config/winston')(__filename)
 var fs = require('fs');
 
 function removeStoreOutputFile(obj,filename){
@@ -65,16 +65,30 @@ function storeOutputFile(obj,filename){
             }
 
         })
-        .catch(error => logger.error(error))
+        .catch(error => logger.info(error))
 }
 
 function orderOutputFile(obj,filename){
     file = path.join(path.dirname(require.main.filename),'/../orders/'+filename+json_file_extention)
-    jsonfile.writeFile(file, obj , { flag: 'a' ,spaces: 2} )
-        .then(res => {
-            logger.info('Callback:Success:Update file to '+filename+' complete')
+    storeReadFile(file)
+        .then(list =>{
+            list.push(obj);
+            jsonfile.writeFile(file, list , { spaces: 2} )
+                .then(res => {
+                    logger.info('Callback:Success:Update file to '+filename+' complete')
+                })
+                .catch(error => logger.info(error))
         })
-        .catch(error => logger.error(error))
+        .catch(err =>{
+            var list = [];
+            list.push(obj);
+            jsonfile.writeFile(file, list , { flag: 'a' ,spaces: 2} )
+                .then(res => {
+                    logger.info('Callback:Success:Update file to '+filename+' complete')
+                })
+                .catch(error => logger.info(error))
+        })
+
 }
 
 function storeReadFile(filename){

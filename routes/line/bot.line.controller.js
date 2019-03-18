@@ -1,6 +1,7 @@
 const Order = require('./bot.order.model');
 const fileHandler = require('./../helpers/FileHandler')
-var logger = require('./../../config/winston')
+var logger = require('./../../config/winston')(__filename)
+
 var {middleware ,handlePreErr ,line_replyMessage ,line_pushMessage} = require('./../helpers/line.handler')
 var joinmessage = require('../../config/flex/joinmessage');
 

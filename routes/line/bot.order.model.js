@@ -19,13 +19,15 @@ const OrderSchema = new mongoose.Schema({
         type: String,
         required: true
     },
+    orderFrom: {
+        type: String
+    },
     orderNumber: {
         type: String,
         required: true
     },
     mobileNumber: {
         type: String,
-        required: true,
         match: [/^[0-9][0-9]{9}$/, 'The value of path {PATH} ({VALUE}) is not a valid mobile number.']
     },
     storeCode:{
