@@ -103,11 +103,24 @@ mongod.getConnectionString().then((mongoUri) => {
                                 site: storeGroup.storeId,
                                 groupId: storeGroup.groupId
                             })
+                        /*
+                        store.save(function (err,savedStore) {
+                            if(err) console.error('Mongoose: error insert store')
+                            console.info('Mongoose: insert store '+storeGroup.storeId+',groupId '+storeGroup.groupId)
+                        })
+                        */
+
                         store.save()
                             .then(savedStore => {
                                 console.info('Mongoose: insert store '+storeGroup.storeId+',groupId '+storeGroup.groupId)
+                                return null;
                             })
-                            .catch(err => console.error('Mongoose: error insert store'))
+                            .catch(err => {
+                                console.error('Mongoose: error insert store')
+                                return null;
+                            })
+                            .finally(function(){return null;})
+
 
                     })
                     .catch()

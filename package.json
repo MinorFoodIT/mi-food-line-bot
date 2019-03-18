@@ -3,7 +3,7 @@
   "version": "0.0.0",
   "private": true,
   "scripts": {
-    "start": "node ./bin/www"
+    "start": "node  ./bin/www"
   },
   "dependencies": {
     "@line/bot-sdk": "^6.4.0",
@@ -15,15 +15,23 @@
     "cookie-parser": "~1.4.3",
     "cors": "2.8.4",
     "debug": "~2.6.9",
+    "dotenv": "^6.2.0",
     "express": "~4.16.0",
+    "express-validation": "^1.0.2",
+    "express-winston": "^3.0.1",
     "helmet": "3.12.0",
     "http-status": "1.0.1",
+    "joi": "^14.3.1",
     "jsonfile": "^5.0.0",
     "jsonpath": "^1.0.0",
+    "lodash": "^4.17.11",
     "method-override": "^2.3.10",
     "mongodb": "^3.1.13",
     "mongoose": "5.4.7",
-    "morgan": "~1.9.0"
+    "morgan": "~1.9.0",
+    "string-builder": "^0.1.6",
+    "swagger-ui-express": "^4.0.2",
+    "winston": "^3.2.1"
   },
   "devDependencies": {
     "mongodb-memory-server": "^3.0.0"

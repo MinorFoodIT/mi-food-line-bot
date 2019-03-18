@@ -1,11 +1,33 @@
-const Order = require('./bot.order.model');
-var config = require('../../config/config');
+var logger = require('./../../config/winston')(__filename)
+var _ = require('lodash');
+
+var {middleware ,handlePreErr ,line_replyMessage ,line_pushMessage} = require('./../helpers/line.handler')
+//Persitence File
 const fileHandler = require('./../helpers/FileHandler')
+var {formatJSON , formatJSONWrap ,printText ,isUndefined} = require('./../helpers/text.handler')
+//DB cache
 var mongoose = require('mongoose');
+const Order = require('./bot.order.model');
 const Store = require('./bot.store.model');
 
-const Client = require('@line/bot-sdk').Client;
-const client = new Client(config);
+//const StringBuilder = require("string-builder");
+
+//Fleax message
+var receiptTemplete = require('../../config/flex/receipt')
+var head_logo = require('./../../config/flex/receipt/head.logo')
+var hero_head = require('./../../config/flex/receipt/hero.store')
+var head_spaceline = require('./../../config/flex/receipt/spaceline')
+
+var hero_date = require('./../../config/flex/receipt/hero.date')
+var hero_check = require('./../../config/flex/receipt/hero.check')
+var hero_mode = require('./../../config/flex/receipt/hero.mode')
+var hero_separator = require('./../../config/flex/receipt/hero.separator')
+
+var body_head = require('./../../config/flex/receipt/body.head')
+var body_contents = require('./../../config/flex/receipt/body.contents')
+var body_item = require('./../../config/flex/receipt/body.item')
+
+
 
 //json query
 var jp = require('jsonpath');
@@ -42,7 +64,27 @@ function formatDate(date) {
 }
 
 function formatMessage(obj) {
-    console.info('format param mode :'+obj)
+
+    /*
+    logger.info('format param mode :'+obj)
+    var sb = new StringBuilder();
+    sb.append("         "+obj.site+"            ");
+    sb.appendLine();
+    sb.append("Server:                  "+"date");
+    sb.appendLine();
+    sb.append("Check/Order              "+obj.orderNumber);
+    sb.appendLine();
+    sb.appendLine();
+    sb.append("Order Type:  "+obj.mode)
+    sb.appendLine();
+    sb.appendLine();
+    sb.appendLine("*** 1112Delivery ***");
+    sb.appendLine();
+
+    sb.appendLine("[items]");
+    sb.appendLine();
+    */
+
     var msg = 'Alert: '+ obj.mode+' channel ,order no '+obj.orderNumber +' mobile '+ obj.mobileNumber+ ' ,time '+obj.transactionTime+' is incomming.'
     return msg;
 }
@@ -62,24 +104,127 @@ function findLineGroup(site){
 
 }
 
-function pushOnLine(site,msg){
+function pushOnLine(site,order){
     findLineGroup(site)
         .then(
             siteObj => {
                 if(siteObj.length > 0){
-                    client
-                        .pushMessage(siteObj[0].groupId, { type: 'text', text: msg })
-                        .catch((err) => {
-                            if (err instanceof HTTPError) {
-                                console.error(err.statusCode);
-                            }
-                        });
+                    //var bb = JSON.parse(bubble);
+                    //logger.info(bubble.type);
+
+                    //line_pushMessage('C6d421685d70593dbcce2427fe20cde3f',{ type: 'flex',altText:'1112Delivery', contents: bubble });
+                    line_pushMessage(siteObj[0].groupId,{ type: 'flex',altText:'1112Delivery', contents: buildReceipt(order) })
+                        //.pushMessage(siteObj[0].groupId,bubble)
                 }
             }
         )
-        .catch(err => console.info('Can not push message '+err))
+        .catch(err => logger.info('Can not push message '+err))
 }
 
+
+
+function buildReceipt(order) {
+    var receiptRoot = JSON.parse(JSON.stringify(receiptTemplete));
+    var headtext = JSON.parse(JSON.stringify(hero_head));
+    var headdate = JSON.parse(JSON.stringify(hero_date));
+    var headcheck = JSON.parse(JSON.stringify(hero_check));
+    var headmode = JSON.parse(JSON.stringify(hero_mode));
+
+    //Item setting
+    var itemContents = JSON.parse(JSON.stringify(body_contents));
+    var items = order.items;
+    var receipt_items = [];
+
+    for(var i=0; i<items.length;i++){
+        var item = JSON.parse(JSON.stringify(body_item));
+        item.contents[0].text = items[i].itemName;
+        item.contents[1].text = items[i].amount.toString();
+        receipt_items = _.concat(receipt_items,item);
+        logger.info(printText('item['+i+']',receipt_items));
+    }
+    itemContents.contents = receipt_items;
+
+    receiptRoot.body.contents.push(head_logo);
+    headtext.text = order.orderFrom
+    receiptRoot.body.contents.push(headtext);
+    receiptRoot.body.contents.push(head_spaceline);
+    headdate.contents[1].text = formatDate(Date.now());
+    receiptRoot.body.contents.push(headdate);
+    headcheck.contents[1].text = order.orderNumber;
+    receiptRoot.body.contents.push(headcheck);
+    headmode.contents[1].text = order.mode;
+    receiptRoot.body.contents.push(headmode);
+    receiptRoot.body.contents.push(hero_separator);
+    receiptRoot.body.contents.push(body_head);
+    receiptRoot.body.contents.push(itemContents);
+    logger.info(printText('receipt out',receiptRoot));
+    return receiptRoot;
+}
+
+function getValue(jsonObject,key){
+    if(!isUndefined(jsonObject.key)){
+        return jsonObject.key;
+    }else{
+        return 'undefined';
+    }
+
+}
+
+function mapToOrder(jsonrequest,brand){
+    var orderform = '';
+    var orderId = '';
+    var Note = !isUndefined(jsonrequest.Note)?jsonrequest.Note:'undefined';
+    if(!isUndefined(Note)){
+        orderform = Note.substring(Note.indexOf('(')+1,Note.indexOf(')'));
+        logger.info(printText('order from :'+orderform,null));
+
+        var word = 'TPC Order:';
+        orderId = Note.substring(Note.indexOf(word)+word.length).trim();
+        logger.info(printText('order='+orderId.trim(),null))
+    }else{
+        orderform = '1112delivery';
+    }
+
+    var mode = ''; var StoreName ='';var StoreNumber = '';
+    var dob  = ''; var items = [];
+    if(jsonrequest.hasOwnProperty('SDM')){
+        dob = !isUndefined(jsonrequest.SDM.DateOfTrans)?jsonrequest.SDM.DateOfTrans:'undefined'; //"DateOfTrans": "0001-01-01T00:00:00",
+        var dqlist = _.filter(jsonrequest.SDM.Entries,function(item){
+            return _.startsWith(item.Name,brand+'-');
+        })
+        for(var i=0; i< dqlist.length;i++){
+            var itemno = dqlist[i].ItemID;
+            var itemname = dqlist[i].Name;
+            var itemprice = dqlist[i].Price;
+            items.push({
+                itemNumber: itemno,
+                itemName: itemname,
+                amount: itemprice
+            })
+            //logger.info(printText(itemname+'   '+itemprice ,null));
+        }
+        mode = jsonrequest.SDM.OrderName.substring(0,jsonrequest.SDM.OrderName.indexOf(' - '));
+        StoreName = jsonrequest.SDM.StoreName;
+        StoreNumber = jsonrequest.SDM.StoreNumber;
+
+    }
+
+    const order = new Order({
+        mode: mode,
+        brand: brand, //'DQ'
+        site: brand+StoreNumber,
+        orderFrom: orderform,
+        orderNumber: orderId,
+        userName: jsonrequest.DriverName,
+        //mobileNumber: '',
+        storeCode: StoreNumber,
+        transactionTime: dob,
+        items: items
+    });
+
+    //to do create each item model
+    return order;
+}
 /**
  * Order push to store
  * @param req
@@ -87,25 +232,38 @@ function pushOnLine(site,msg){
  * @param next
  */
 function ordering(req, res, next) {
-    console.info('request param mode :'+req.params.mode)
-    const order = new Order({
-        mode: req.params.mode,
-        brand: req.params.brand,
-        site: req.params.site,
-        orderNumber: req.body.orderNumber,
-        userName: req.body.userName,
-        mobileNumber: req.body.mobileNumber,
-        storeCode: req.body.storeCode,
-        transactionTime: req.body.transactionTime
-    });
+    //logger.info(printText('request inbound',req.body));
+    var jsonrequest = req.body;
+    var brand = req.params.brand.toUpperCase();
+    var order = mapToOrder(jsonrequest,brand);
+
+    //logger.info(printText('map order',order));
 
     order.save()
         .then(savedOrder=> {
-            fileHandler.orderOutputFile(savedOrder,req.params.site+'.'+formatDate(Date.now()))
+            fileHandler.orderOutputFile(savedOrder,order.site+'.'+formatDate(Date.now()))
             res.json(savedOrder)
         })
-        .then(pushOnLine(req.params.site,formatMessage(order))) // push message to line group store
+        .then(pushOnLine(order.site,order)) // push message to line group store
         .catch(e => next(e));
 }
 
 module.exports = { ordering };
+
+
+
+/*
+const order = new Order({
+    mode: req.params.mode,
+    brand: req.params.brand,
+    site: req.params.site,
+    orderNumber: req.body.orderNumber,
+    userName: req.body.userName,
+    mobileNumber: req.body.mobileNumber,
+    storeCode: req.body.storeCode,
+    transactionTime: req.body.transactionTime,
+    items: []
+});
+
+//pushOnLine(req.params.site,formatMessage(order));
+ */
