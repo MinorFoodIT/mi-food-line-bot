@@ -1,0 +1,147 @@
+{
+  "swagger": "2.0",
+  "info": {
+    "description": "1112delivery LINE Notification.",
+    "version": "1.0.0",
+    "title": "Order Notification APIs",
+    "termsOfService": "",
+    "contact": {
+      "email": "akarat_su@minor.com"
+    },
+    "license": {
+      "name": "Apache 2.0",
+      "url": "http://www.apache.org/licenses/LICENSE-2.0.html"
+    }
+  },
+  "host": "hostname@domain",
+  "basePath": "/api",
+  "tags": [
+    {
+      "name": "1112delivery",
+      "description": "1112delivery order notification"
+    }
+  ],
+  "schemes": [
+    "https",
+    "http"
+  ],
+  "paths": {
+    "/v1/bot/1112delivery/{brand}": {
+      "post": {
+        "tags": [
+          "1112delivery"
+        ],
+        "summary": "Send order notification",
+        "description": "Assign ordering by brand",
+        "consumes": [
+          "application/json"
+        ],
+        "produces": [
+          "application/json"
+        ],
+        "parameters": [
+          {
+            "name": "brand",
+            "in": "path",
+            "description": "Brand identifier",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "body",
+            "in": "body",
+            "description": "1112delivery object",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/1112delivery"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "successful operation",
+            "schema": {
+              "$ref": "#/definitions/response"
+            }
+          },
+          "400": {
+            "description": "Invalid brand"
+          },
+          "404": {
+            "description": "API not found"
+          }
+        },
+        "security": [
+          {
+            "api_key": []
+          }
+        ]
+      }
+    }
+  },
+  "securityDefinitions": {
+    "api_key": {
+      "type": "apiKey",
+      "name": "api_key",
+      "in": "header"
+    }
+  },
+  "definitions": {
+    "1112delivery": {
+      "type": "object",
+      "properties": {
+        "SDM": {
+          "type": "Object",
+          "properties": {
+            "DateOfTrans": {
+              "type": "string",
+              "format": "date-time"
+            },
+            "Entries": {
+              "type": "array"
+            },
+            "OrderName": {
+              "type": "string"
+            },
+            "StoreName": {
+              "type": "string"
+            },
+            "StoreNumber": {
+              "type": "string"
+            }
+          }
+        },
+        "Note": {
+          "type": "string"
+        }
+      }
+    },
+    "response": {
+      "type": "object",
+      "properties": {
+        "code": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "message": {
+          "type": "string"
+        }
+      }
+    },
+    "ApiResponse": {
+      "type": "object",
+      "properties": {
+        "code": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "type": {
+          "type": "string"
+        },
+        "message": {
+          "type": "string"
+        }
+      }
+    }
+  }
+}

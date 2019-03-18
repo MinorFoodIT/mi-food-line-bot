@@ -1,5 +1,3 @@
-
-
 var express = require('express');
 var path = require('path');
 var cookieParser = require('cookie-parser');
@@ -13,6 +11,7 @@ var cors = require('cors');
 var config = require('./config/config')
 const httpStatus = require('http-status');
 const APIError = require('./routes/helpers/APIError');
+var swaggerUi = require('swagger-ui-express'), swaggerDocument = require('./swagger.json');
 
 const expressWinston = require('express-winston');
 const winstonInstance = require('winston');
@@ -83,6 +82,9 @@ app.disable('etag'); //Cache and 304 not modified ,http header with same request
 app.use('/api', routes);
 //app.get('/favicon.ico', (req, res) => res.status(204));
 
+//swagger
+app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument));
+
 // if error is not an instanceOf APIError, convert it.
 app.use((err, req, res, next) => {
     if (err instanceof expressValidation.ValidationError) {
@@ -99,7 +101,7 @@ app.use((err, req, res, next) => {
 
 // catch 404 and forward to error handler
 app.use((req, res, next) => {
-    const err = new APIError('API not found', httpStatus.NOT_FOUND);
+    const err = new APIError('API not found', httpStatus.NOT_FOUND ,true);
     return next(err);
 });
 
