@@ -24,9 +24,9 @@ var routes = require('./routes/index-route');
 
 var app = express();
 
-//if (config.env === 'development') {
+if (config.env === 'development') {
     app.use(logger('dev'));
-//}
+}
 
 // parse body params and attache them to req.body
 app.use(bodyParser.json());
@@ -115,6 +115,7 @@ if (config.env !== 'test') {
 // error handler, send stacktrace only during development
 app.use((err, req, res, next) => // eslint-disable-line no-unused-vars
     res.status(err.status).json({
+        code: err.status,
         message: err.isPublic ? err.message : httpStatus[err.status],
         stack: config.env === 'development' ? err.stack : {}
     })

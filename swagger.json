@@ -1,9 +1,9 @@
 {
   "swagger": "2.0",
   "info": {
-    "description": "1112delivery LINE Notification.",
+    "description": "1112delivery Order Notification.",
     "version": "1.0.0",
-    "title": "Order Notification APIs",
+    "title": "1112delivery Order Notification APIs",
     "termsOfService": "",
     "contact": {
       "email": "akarat_su@minor.com"
@@ -43,7 +43,7 @@
           {
             "name": "brand",
             "in": "path",
-            "description": "Brand identifier",
+            "description": "Brand identifier ,exp DQ is Dairy Queen",
             "required": true,
             "type": "string"
           },
@@ -71,7 +71,7 @@
             "description": "API not found"
           }
         },
-        "security": [
+        "_security": [
           {
             "api_key": []
           }
@@ -79,7 +79,7 @@
       }
     }
   },
-  "securityDefinitions": {
+  "_securityDefinitions": {
     "api_key": {
       "type": "apiKey",
       "name": "api_key",
