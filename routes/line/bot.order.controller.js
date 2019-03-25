@@ -1,10 +1,12 @@
 var logger = require('./../../config/winston')(__filename)
+const APIError = require('./../helpers/APIError');
+const httpStatus = require('http-status');
 var _ = require('lodash');
 
 var {middleware ,handlePreErr ,line_replyMessage ,line_pushMessage} = require('./../helpers/line.handler')
 //Persitence File
 const fileHandler = require('./../helpers/FileHandler')
-var {formatJSON , formatJSONWrap ,printText ,isUndefined} = require('./../helpers/text.handler')
+var {formatJSON , formatJSONWrap ,printText ,isUndefined ,isNull} = require('./../helpers/text.handler')
 //DB cache
 var mongoose = require('mongoose');
 const Order = require('./bot.order.model');
@@ -27,6 +29,9 @@ var body_head = require('./../../config/flex/receipt/body.head')
 var body_contents = require('./../../config/flex/receipt/body.contents')
 var body_item = require('./../../config/flex/receipt/body.item')
 
+var foot_separator = require('./../../config/flex/receipt/hero.separator_extra')
+var foot_subtotal = require('./../../config/flex/receipt/foot.subtotal')
+var foot_payment = require('./../../config/flex/receipt/foot.payments')
 
 
 //json query
@@ -157,6 +162,11 @@ function buildReceipt(order) {
     receiptRoot.body.contents.push(hero_separator);
     receiptRoot.body.contents.push(body_head);
     receiptRoot.body.contents.push(itemContents);
+    receiptRoot.body.contents.push(foot_separator);
+    foot_subtotal.contents[1].text = order.subtotal;
+    receiptRoot.body.contents.push(foot_subtotal);
+    foot_payment.contents[1].text = order.payment;
+    receiptRoot.body.contents.push(foot_payment);
     logger.info(printText('receipt out',receiptRoot));
     return receiptRoot;
 }
@@ -186,7 +196,7 @@ function mapToOrder(jsonrequest,brand){
     }
 
     var mode = ''; var StoreName ='';var StoreNumber = '';
-    var dob  = ''; var items = [];
+    var dob  = ''; var items = []; var subtotal =''; var payment ='';
     if(jsonrequest.hasOwnProperty('SDM')){
         dob = !isUndefined(jsonrequest.SDM.DateOfTrans)?jsonrequest.SDM.DateOfTrans:'undefined'; //"DateOfTrans": "0001-01-01T00:00:00",
         var dqlist = _.filter(jsonrequest.SDM.Entries,function(item){
@@ -206,6 +216,8 @@ function mapToOrder(jsonrequest,brand){
         mode = jsonrequest.SDM.OrderName.substring(0,jsonrequest.SDM.OrderName.indexOf(' - '));
         StoreName = jsonrequest.SDM.StoreName;
         StoreNumber = jsonrequest.SDM.StoreNumber;
+        subtotal = jsonrequest.SDM.GrossTotal;
+        payment = !isNull(jsonrequest.SDM.Payments)?jsonrequest.SDM.Payments:'none';
 
     }
 
@@ -219,7 +231,9 @@ function mapToOrder(jsonrequest,brand){
         //mobileNumber: '',
         storeCode: StoreNumber,
         transactionTime: dob,
-        items: items
+        items: items,
+        subtotal: subtotal,
+        payment: payment
     });
 
     //to do create each item model
@@ -235,35 +249,20 @@ function ordering(req, res, next) {
     //logger.info(printText('request inbound',req.body));
     var jsonrequest = req.body;
     var brand = req.params.brand.toUpperCase();
-    var order = mapToOrder(jsonrequest,brand);
-
-    //logger.info(printText('map order',order));
-
-    order.save()
-        .then(savedOrder=> {
-            fileHandler.orderOutputFile(savedOrder,order.site+'.'+formatDate(Date.now()))
-            res.json(savedOrder)
-        })
-        .then(pushOnLine(order.site,order)) // push message to line group store
-        .catch(e => next(e));
+    if(jsonrequest.hasOwnProperty('SDM')) {
+        var order = mapToOrder(jsonrequest, brand);
+        //logger.info(printText('map order',order));
+        order.save()
+            .then(savedOrder => {
+                fileHandler.orderOutputFile(savedOrder, order.site + '.' + formatDate(Date.now()))
+                res.json(savedOrder)
+            })
+            .then(pushOnLine(order.site, order)) // push message to line group store
+            .catch(e => next(e));
+    }else{
+        const err = new APIError('Data is invalid', httpStatus.BAD_REQUEST ,true);
+        next(err);
+    }
 }
 
 module.exports = { ordering };
-
-
-
-/*
-const order = new Order({
-    mode: req.params.mode,
-    brand: req.params.brand,
-    site: req.params.site,
-    orderNumber: req.body.orderNumber,
-    userName: req.body.userName,
-    mobileNumber: req.body.mobileNumber,
-    storeCode: req.body.storeCode,
-    transactionTime: req.body.transactionTime,
-    items: []
-});
-
-//pushOnLine(req.params.site,formatMessage(order));
- */

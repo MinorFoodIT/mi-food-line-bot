@@ -88,4 +88,4 @@ function printText(desc,passObject){
 }
 
 
-module.exports = { formatJSON , formatJSONWrap ,printText ,isUndefined}
+module.exports = { formatJSON , formatJSONWrap ,printText ,isUndefined ,isNull}

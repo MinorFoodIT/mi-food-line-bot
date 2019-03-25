@@ -43,7 +43,13 @@ const OrderSchema = new mongoose.Schema({
         type: Date,
         default: Date.now
     },
-    items:[]
+    items:[],
+    subtotal: {
+        type: String
+    },
+    payment: {
+        type: String
+    }
 });
 
 /**
