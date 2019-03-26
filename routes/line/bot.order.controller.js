@@ -118,8 +118,7 @@ function pushOnLine(site,order){
                     //logger.info(bubble.type);
 
                     //line_pushMessage('C6d421685d70593dbcce2427fe20cde3f',{ type: 'flex',altText:'1112Delivery', contents: bubble });
-                    line_pushMessage(siteObj[0].groupId,{ type: 'flex',altText:'1112Delivery', contents: buildReceipt(order) })
-                        //.pushMessage(siteObj[0].groupId,bubble)
+                    line_pushMessage(order,siteObj[0].groupId,{ type: 'flex',altText:'1112Delivery', contents: buildReceipt(order) })
                 }
             }
         )
@@ -233,7 +232,8 @@ function mapToOrder(jsonrequest,brand){
         transactionTime: dob,
         items: items,
         subtotal: subtotal,
-        payment: payment
+        payment: payment,
+        status: ''
     });
 
     //to do create each item model
@@ -254,7 +254,9 @@ function ordering(req, res, next) {
         //logger.info(printText('map order',order));
         order.save()
             .then(savedOrder => {
-                fileHandler.orderOutputFile(savedOrder, order.site + '.' + formatDate(Date.now()))
+                fileHandler.orderOutputFile(savedOrder, order.site + '.' + formatDate(Date.now()));
+                pushOnLine(order.site, savedOrder);
+
                 //res.json(savedOrder)
                 res.json({
                     code: httpStatus.OK,
@@ -262,7 +264,7 @@ function ordering(req, res, next) {
                     stack:{}
                 })
             })
-            .then(pushOnLine(order.site, order)) // push message to line group store
+            //.then() // push message to line group store
             .catch(e => next(e));
     }else{
         const err = new APIError('Invalid data', httpStatus.BAD_REQUEST ,true);
@@ -270,4 +272,14 @@ function ordering(req, res, next) {
     }
 }
 
-module.exports = { ordering };
+function findOrder(req, res, next) {
+    var brand = req.params.brand.toUpperCase();
+    var orderId = req.params.order.toLowerCase();
+    Order.getOrderId(orderId,brand)
+        .then(order =>{
+            res.json(order)
+        })
+        .catch(e => next(e));
+}
+
+module.exports = { ordering ,findOrder};
