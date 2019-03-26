@@ -255,12 +255,17 @@ function ordering(req, res, next) {
         order.save()
             .then(savedOrder => {
                 fileHandler.orderOutputFile(savedOrder, order.site + '.' + formatDate(Date.now()))
-                res.json(savedOrder)
+                //res.json(savedOrder)
+                res.json({
+                    code: httpStatus.OK,
+                    message: httpStatus[httpStatus.OK],
+                    stack:{}
+                })
             })
             .then(pushOnLine(order.site, order)) // push message to line group store
             .catch(e => next(e));
     }else{
-        const err = new APIError('Data is invalid', httpStatus.BAD_REQUEST ,true);
+        const err = new APIError('Invalid data', httpStatus.BAD_REQUEST ,true);
         next(err);
     }
 }
