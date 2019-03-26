@@ -1,6 +1,9 @@
 # BOT LINE@ messaging
  Minor FoodIT is own project
- 
+
+# Test Local
+ set NODE_ENV=development
+
 # Feature Developing
  * version 1.0.0
       * Order route and controller

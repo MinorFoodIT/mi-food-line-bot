@@ -43,7 +43,16 @@ const OrderSchema = new mongoose.Schema({
         type: Date,
         default: Date.now
     },
-    items:[]
+    items:[],
+    subtotal: {
+        type: String
+    },
+    payment: {
+        type: String
+    },
+    status: {
+        type: String
+    }
 });
 
 /**
@@ -75,7 +84,31 @@ OrderSchema.statics = {
                 if (order) {
                     return order;
                 }
-                const err = new APIError('No such order exists!', httpStatus.NOT_FOUND);
+                const err = new APIError('No such order exists!', httpStatus.NOT_FOUND ,true);
+                return Promise.reject(err);
+            });
+    },
+
+    getOrderId(orderId,brand){
+        return this.findOne({orderNumber:orderId,brand:brand})
+            .exec()
+            .then((order) => {
+                if (order) {
+                    return order;
+                }
+                const err = new APIError('No such order exists!', httpStatus.NOT_FOUND ,true);
+                return Promise.reject(err);
+            });
+    },
+
+    getStoreOrderId(orderId,brand,store){
+        return this.findOne({orderNumber:orderId,brand:brand,storeCode:storeCode})
+            .exec()
+            .then((order) => {
+                if (order) {
+                    return order;
+                }
+                const err = new APIError('No such order exists!', httpStatus.NOT_FOUND ,true);
                 return Promise.reject(err);
             });
     },

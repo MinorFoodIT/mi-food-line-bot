@@ -7,6 +7,7 @@ const Client = require('@line/bot-sdk').Client;
 const client = new Client(config);
 var logger = require('./../../config/winston')(__filename)
 
+const Order = require('./../line/bot.order.model');
 /**
  * Line check header signature
  */
@@ -93,9 +94,15 @@ function line_replyMessage(token ,contentMessage){
             }});
 }
 
-function line_pushMessage(token ,contentMessage){
+function line_pushMessage(orderSaved,token ,contentMessage){
     client.pushMessage(token,contentMessage)
+        .then( () => {
+            Order.findOneAndUpdate({_id: orderSaved._id},{$set:{status:"LINE_SENT"}})
+                .then()
+        })
         .catch((err) => {
+            Order.findOneAndUpdate({_id: orderSaved._id},{$set:{status:"LINE_FAIL"}})
+                .then()
             if (err instanceof HTTPError) {
                 logger.error(err.statusCode);
             }

@@ -9,10 +9,7 @@
     "type": "box",
     "layout": "vertical",
     "contents": [
-      {
-        "type": "separator",
-        "margin": "xxl"
-      }
+
     ]
   }
 }

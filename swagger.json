@@ -1,9 +1,9 @@
 {
   "swagger": "2.0",
   "info": {
-    "description": "1112delivery LINE Notification.",
+    "description": "1112delivery Order Notification.",
     "version": "1.0.0",
-    "title": "Order Notification APIs",
+    "title": "1112delivery Order Notification APIs",
     "termsOfService": "",
     "contact": {
       "email": "akarat_su@minor.com"
@@ -13,7 +13,7 @@
       "url": "http://www.apache.org/licenses/LICENSE-2.0.html"
     }
   },
-  "host": "hostname@domain",
+  "host": "localhost:3000",
   "basePath": "/api",
   "tags": [
     {
@@ -22,7 +22,6 @@
     }
   ],
   "schemes": [
-    "https",
     "http"
   ],
   "paths": {
@@ -43,7 +42,7 @@
           {
             "name": "brand",
             "in": "path",
-            "description": "Brand identifier",
+            "description": "Brand identifier ,example DQ is Dairy Queen",
             "required": true,
             "type": "string"
           },
@@ -65,13 +64,19 @@
             }
           },
           "400": {
-            "description": "Invalid brand"
+            "description": "Invalid data",
+            "schema": {
+              "$ref": "#/definitions/response"
+            }
           },
           "404": {
-            "description": "API not found"
+            "description": "API not found",
+            "schema": {
+              "$ref": "#/definitions/response"
+            }
           }
         },
-        "security": [
+        "_security": [
           {
             "api_key": []
           }
@@ -79,7 +84,7 @@
       }
     }
   },
-  "securityDefinitions": {
+  "_securityDefinitions": {
     "api_key": {
       "type": "apiKey",
       "name": "api_key",
@@ -108,6 +113,12 @@
             },
             "StoreNumber": {
               "type": "string"
+            },
+            "GrossTotal": {
+              "type": "string"
+            },
+            "Payments": {
+              "type": "string"
             }
           }
         },
@@ -125,21 +136,9 @@
         },
         "message": {
           "type": "string"
-        }
-      }
-    },
-    "ApiResponse": {
-      "type": "object",
-      "properties": {
-        "code": {
-          "type": "integer",
-          "format": "int32"
         },
-        "type": {
-          "type": "string"
-        },
-        "message": {
-          "type": "string"
+        "stack": {
+          "type": "object"
         }
       }
     }
