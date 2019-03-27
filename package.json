@@ -26,6 +26,7 @@
     "jsonpath": "^1.0.0",
     "lodash": "^4.17.11",
     "method-override": "^2.3.10",
+    "moment": "^2.24.0",
     "mongodb": "^3.1.13",
     "mongoose": "5.4.7",
     "morgan": "~1.9.0",

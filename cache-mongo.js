@@ -1,12 +1,18 @@
 var os = require('os');
 var mongoose = require('mongoose');
 const Store = require('./routes/line/bot.store.model');
+const Order = require('./routes/line/bot.order.model');
+
 var MongoMemoryServer = require('mongodb-memory-server');
 
 const storeFolder = './stores/';
+const orderFolder = './orders/';
 const fs = require('fs');
 
 const fileHandler = require('./routes/helpers/FileHandler')
+
+var moment = require('moment');
+var dateNow = moment().format('YYYY-MM-DD');
 
 /**
  * In memory database
@@ -95,7 +101,7 @@ mongod.getConnectionString().then((mongoUri) => {
         fs.readdir(storeFolder, (err, files) => {
             files.forEach(file => {
                 //console.log(file);
-                fileHandler.storeReadFile(storeFolder+file)
+                fileHandler.jsonReadFile(storeFolder+file)
                     .then(storeGroup => {
                         //instance model
                         var store = new Store(
@@ -125,6 +131,27 @@ mongod.getConnectionString().then((mongoUri) => {
                     })
                     .catch()
             });
+        })
+
+
+        fs.readdir(orderFolder, (err, folders) => {
+            folders.forEach(folder => {
+                fs.readdir(orderFolder+folder , (err, files) => {
+                    files.forEach(file => {
+                        if(file.indexOf(dateNow) > -1){
+                            //load only current date
+                            fileHandler.jsonReadFile(orderFolder+folder+'/'+file)
+                                .then( listorder =>{
+                                    listorder.forEach(order => {
+                                        Order.create(order)
+                                            .then()
+                                            .catch(err => console.log(err))
+                                    })
+                                })
+                        }
+                    })
+                })
+            })
         })
 
         /*
