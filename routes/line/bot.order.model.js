@@ -91,6 +91,7 @@ OrderSchema.statics = {
 
     getOrderId(orderId,brand){
         return this.findOne({orderNumber:orderId,brand:brand})
+            .sort({ createdAt: -1 })
             .exec()
             .then((order) => {
                 if (order) {
@@ -103,6 +104,7 @@ OrderSchema.statics = {
 
     getStoreOrderId(orderId,brand,store){
         return this.findOne({orderNumber:orderId,brand:brand,storeCode:storeCode})
+            .sort({ createdAt: -1 })
             .exec()
             .then((order) => {
                 if (order) {

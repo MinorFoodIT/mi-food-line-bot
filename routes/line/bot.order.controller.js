@@ -214,7 +214,7 @@ function mapToOrder(jsonrequest,brand){
         }
         mode = jsonrequest.SDM.OrderName.substring(0,jsonrequest.SDM.OrderName.indexOf(' - '));
         StoreName = jsonrequest.SDM.StoreName;
-        StoreNumber = jsonrequest.SDM.StoreNumber;
+        StoreNumber = jsonrequest.SDM.StoreNumber.substring(jsonrequest.SDM.StoreNumber.length-4);
         subtotal = jsonrequest.SDM.GrossTotal;
         payment = !isNull(jsonrequest.SDM.Payments)?jsonrequest.SDM.Payments:'none';
 

@@ -69,15 +69,20 @@ function storeOutputFile(obj,filename){
 }
 
 function orderOutputFile(obj,filename){
-    file = path.join(path.dirname(require.main.filename),'/../orders/'+filename+json_file_extention)
-    storeReadFile(file)
+    var site = filename.substring(0,filename.indexOf('.'))
+    storepath = path.join(path.dirname(require.main.filename),'/../orders/'+site)
+    file = path.join(path.dirname(require.main.filename),'/../orders/'+site+'/'+filename+json_file_extention)
+    if (!fs.existsSync(storepath)){
+        fs.mkdirSync(storepath);
+    }
+    jsonReadFile(file)
         .then(list =>{
             list.push(obj);
             jsonfile.writeFile(file, list , { spaces: 2} )
                 .then(res => {
                     logger.info('Callback:Success:Update file to '+filename+' complete')
                 })
-                .catch(error => logger.info(error))
+                .catch(error => logger.info('update new file '+error))
         })
         .catch(err =>{
             var list = [];
@@ -86,12 +91,11 @@ function orderOutputFile(obj,filename){
                 .then(res => {
                     logger.info('Callback:Success:Update file to '+filename+' complete')
                 })
-                .catch(error => logger.info(error))
+                .catch(error => logger.info('write new file '+error))
         })
-
 }
 
-function storeReadFile(filename){
+function jsonReadFile(filename){
     return new Promise(
         (resolve, reject) => {
             jsonfile.readFile(filename)
@@ -102,4 +106,4 @@ function storeReadFile(filename){
 
 }
 
-module.exports = { storeOutputFile ,orderOutputFile ,storeReadFile ,removeStoreOutputFile}
+module.exports = { storeOutputFile ,orderOutputFile ,jsonReadFile ,removeStoreOutputFile}
