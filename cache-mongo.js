@@ -14,6 +14,7 @@ const fileHandler = require('./routes/helpers/FileHandler')
 var moment = require('moment');
 var dateNow = moment().format('YYYY-MM-DD');
 
+var agenda = require('./agendaDB');
 /**
  * In memory database
  */
@@ -47,7 +48,24 @@ const mongod = new MongoMemoryServer.MongoMemoryServer({
 
 });
 */
+/*
+{
+    instance: {
+        port: 10050,
+        ip: '127.0.0.1',
+        dbName: 'IMDB',
+        dbPath: 'temp',
+        storageEngine: `devnull`, // by default `ephemeralForTest`, available engines: [ 'devnull', 'ephemeralForTest', 'mmapv1', 'wiredTiger' ]
+        debug: false, // by default false
+        //replSet: 'no', // by default no replica set, replica set name
+        auth: false // by default `mongod` is started with '--noauth', start `mongod` with '--auth'
+        //args: string[], // by default no additional arguments, any additional command line arguments for `mongod` `mongod` (ex. ['--notablescan'])
+    },
+    debug: true,
+    autoStart: true
 
+}
+*/
 mongoose.Promise = Promise;
 
 const mongod = new MongoMemoryServer.MongoMemoryServer();
@@ -143,6 +161,7 @@ mongod.getConnectionString().then((mongoUri) => {
                             fileHandler.jsonReadFile(orderFolder+folder+'/'+file)
                                 .then( listorder =>{
                                     listorder.forEach(order => {
+                                        console.info('Mongoose: insert order '+order.orderNumber)
                                         Order.create(order)
                                             .then()
                                             .catch(err => console.log(err))
@@ -153,6 +172,9 @@ mongod.getConnectionString().then((mongoUri) => {
                 })
             })
         })
+
+        //assign job
+        agenda.clearHistoryOrder(mongoUri)
 
         /*
         defindStore()
