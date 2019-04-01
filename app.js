@@ -12,6 +12,8 @@ var config = require('./config/config')
 const httpStatus = require('http-status');
 const APIError = require('./routes/helpers/APIError');
 var swaggerUi = require('swagger-ui-express'), swaggerDocument = require('./swagger.json');
+var swStats = require('swagger-stats');
+
 
 const expressWinston = require('express-winston');
 const winstonInstance = require('winston');
@@ -27,6 +29,8 @@ var app = express();
 if (config.env === 'development') {
     app.use(logger('dev'));
 }
+
+app.use(swStats.getMiddleware({swaggerSpec:swaggerDocument}));
 
 // parse body params and attache them to req.body
 app.use(bodyParser.json());

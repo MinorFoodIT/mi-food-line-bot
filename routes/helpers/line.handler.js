@@ -94,17 +94,27 @@ function line_replyMessage(token ,contentMessage){
             }});
 }
 
-function line_pushMessage(orderSaved,token ,contentMessage){
+function line_pushMessage(orderType,orderSaved,token ,contentMessage){
     client.pushMessage(token,contentMessage)
         .then( () => {
-            Order.findOneAndUpdate({_id: orderSaved._id},{$set:{status:"LINE_SENT"}})
-                .then()
+            if(orderType == 1){
+                Future.findOneAndUpdate({_id: orderSaved._id}, {$set: {status: "LINE_SENT",alerted: true }})
+                    .then().catch(err => logger.info('LINE Push message error '+err))
+            }else {
+                Order.findOneAndUpdate({_id: orderSaved._id}, {$set: {status: "LINE_SENT"}})
+                    .then().catch(err => logger.info('LINE Push message error '+err))
+            }
         })
         .catch((err) => {
-            Order.findOneAndUpdate({_id: orderSaved._id},{$set:{status:"LINE_FAIL"}})
-                .then()
-            if (err instanceof HTTPError) {
-                logger.error(err.statusCode);
+            if(orderType == 1){
+                Future.findOneAndUpdate({_id: orderSaved._id}, {$set: {status: "LINE_FAIL",alerted: false }})
+                    .then().catch(err => logger.info('LINE Push message error '+err))
+            }else {
+                Order.findOneAndUpdate({_id: orderSaved._id}, {$set: {status: "LINE_FAIL"}})
+                    .then().catch(err => logger.info('LINE Push message error '+err))
+                if (err instanceof HTTPError) {
+                    logger.error(err.statusCode);
+                }
             }
         });
 }

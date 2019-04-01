@@ -1,18 +1,19 @@
+var _ = require('lodash');
+var moment = require('moment');
+var config = require('./../../config/config')
 var logger = require('./../../config/winston')(__filename)
 const APIError = require('./../helpers/APIError');
 const httpStatus = require('http-status');
-var _ = require('lodash');
 
 var {middleware ,handlePreErr ,line_replyMessage ,line_pushMessage} = require('./../helpers/line.handler')
-//Persitence File
 const fileHandler = require('./../helpers/FileHandler')
 var {formatJSON , formatJSONWrap ,printText ,isUndefined ,isNull} = require('./../helpers/text.handler')
+
 //DB cache
 var mongoose = require('mongoose');
 const Order = require('./bot.order.model');
 const Store = require('./bot.store.model');
-
-//const StringBuilder = require("string-builder");
+const Future = require('./bot.future.model');
 
 //Fleax message
 var receiptTemplete = require('../../config/flex/receipt')
@@ -20,6 +21,7 @@ var head_logo = require('./../../config/flex/receipt/head.logo')
 var hero_head = require('./../../config/flex/receipt/hero.store')
 var head_spaceline = require('./../../config/flex/receipt/spaceline')
 
+var hero_future = require('../../config/flex/receipt/hero.futureorder')
 var hero_date = require('./../../config/flex/receipt/hero.date')
 var hero_check = require('./../../config/flex/receipt/hero.check')
 var hero_mode = require('./../../config/flex/receipt/hero.mode')
@@ -32,7 +34,6 @@ var body_item = require('./../../config/flex/receipt/body.item')
 var foot_separator = require('./../../config/flex/receipt/hero.separator_extra')
 var foot_subtotal = require('./../../config/flex/receipt/foot.subtotal')
 var foot_payment = require('./../../config/flex/receipt/foot.payments')
-
 
 //json query
 var jp = require('jsonpath');
@@ -109,27 +110,44 @@ function findLineGroup(site){
 
 }
 
-function pushOnLine(site,order){
+function pushOnLine(site,order,orderType){
     findLineGroup(site)
         .then(
             siteObj => {
                 if(siteObj.length > 0){
-                    //var bb = JSON.parse(bubble);
-                    //logger.info(bubble.type);
+                    if(orderType == 1)
+                        logger.info('Push order message to '+site);
+                    else
+                        logger.info('Push future message to '+site);
 
                     //line_pushMessage('C6d421685d70593dbcce2427fe20cde3f',{ type: 'flex',altText:'1112Delivery', contents: bubble });
-                    line_pushMessage(order,siteObj[0].groupId,{ type: 'flex',altText:'1112Delivery', contents: buildReceipt(order) })
+                    line_pushMessage(orderType,order,siteObj[0].groupId,{ type: 'flex',altText:'1112Delivery', contents: buildReceipt(order,orderType) })
                 }
             }
         )
-        .catch(err => logger.info('Can not push message '+err))
+        .catch(err => logger.info('Could not push message '+err))
+}
+
+function iterationCopy(src) {
+    let target = {};
+    for (let prop in src) {
+        if (src.hasOwnProperty(prop)) {
+            target[prop] = src[prop];
+        }
+    }
+    return target;
+}
+
+function copyDocumentObject(objectToCopy) {
+    return JSON.parse(JSON.stringify(objectToCopy))
 }
 
 
 
-function buildReceipt(order) {
+function buildReceipt(order,orderType) {
     var receiptRoot = JSON.parse(JSON.stringify(receiptTemplete));
     var headtext = JSON.parse(JSON.stringify(hero_head));
+    var headfuture = JSON.parse(JSON.stringify(hero_future));
     var headdate = JSON.parse(JSON.stringify(hero_date));
     var headcheck = JSON.parse(JSON.stringify(hero_check));
     var headmode = JSON.parse(JSON.stringify(hero_mode));
@@ -152,6 +170,9 @@ function buildReceipt(order) {
     headtext.text = order.orderFrom
     receiptRoot.body.contents.push(headtext);
     receiptRoot.body.contents.push(head_spaceline);
+    if(orderType == 1){
+        receiptRoot.body.contents.push(headfuture);
+    }
     headdate.contents[1].text = formatDate(Date.now());
     receiptRoot.body.contents.push(headdate);
     headcheck.contents[1].text = order.orderNumber;
@@ -185,11 +206,11 @@ function mapToOrder(jsonrequest,brand){
     var Note = !isUndefined(jsonrequest.Note)?jsonrequest.Note:'undefined';
     if(!isUndefined(Note)){
         orderform = Note.substring(Note.indexOf('(')+1,Note.indexOf(')'));
-        logger.info(printText('order from :'+orderform,null));
+            //logger.info(printText('order from :'+orderform,null));
 
         var word = 'TPC Order:';
         orderId = Note.substring(Note.indexOf(word)+word.length).trim();
-        logger.info(printText('order='+orderId.trim(),null))
+            //logger.info(printText('order='+orderId.trim(),null))
     }else{
         orderform = '1112delivery';
     }
@@ -239,6 +260,70 @@ function mapToOrder(jsonrequest,brand){
     //to do create each item model
     return order;
 }
+
+function mapToFutureOrder(jsonrequest,brand){
+    var orderform = '';
+    var orderId = '';
+    var Note = !isUndefined(jsonrequest.Note)?jsonrequest.Note:'undefined';
+    if(!isUndefined(Note)){
+        orderform = Note.substring(Note.indexOf('(')+1,Note.indexOf(')'));
+        logger.info(printText('order from :'+orderform,null));
+
+        var word = 'TPC Order:';
+        orderId = Note.substring(Note.indexOf(word)+word.length).trim();
+        logger.info(printText('order='+orderId.trim(),null))
+    }else{
+        orderform = '1112delivery';
+    }
+
+    var mode = ''; var StoreName ='';var StoreNumber = '';
+    var dob  = ''; var items = []; var subtotal =''; var payment =''; var dueDate ;
+    if(jsonrequest.hasOwnProperty('SDM')){
+        dueDate = jsonrequest.SDM.DueTime;
+        dob = !isUndefined(jsonrequest.SDM.DateOfTrans)?jsonrequest.SDM.DateOfTrans:'undefined'; //"DateOfTrans": "0001-01-01T00:00:00",
+        var dqlist = _.filter(jsonrequest.SDM.Entries,function(item){
+            return _.startsWith(item.Name,brand+'-');
+        })
+        for(var i=0; i< dqlist.length;i++){
+            var itemno = dqlist[i].ItemID;
+            var itemname = dqlist[i].Name;
+            var itemprice = dqlist[i].Price;
+            items.push({
+                itemNumber: itemno,
+                itemName: itemname,
+                amount: itemprice
+            })
+            //logger.info(printText(itemname+'   '+itemprice ,null));
+        }
+        mode = jsonrequest.SDM.OrderName.substring(0,jsonrequest.SDM.OrderName.indexOf(' - '));
+        StoreName = jsonrequest.SDM.StoreName;
+        StoreNumber = jsonrequest.SDM.StoreNumber.substring(jsonrequest.SDM.StoreNumber.length-4);
+        subtotal = jsonrequest.SDM.GrossTotal;
+        payment = !isNull(jsonrequest.SDM.Payments)?jsonrequest.SDM.Payments:'none';
+
+    }
+
+    const future = new Future({
+        dueDate: dueDate,
+        alert: false,
+        mode: mode,
+        brand: brand, //'DQ'
+        site: brand+StoreNumber,
+        orderFrom: orderform,
+        orderNumber: orderId,
+        userName: jsonrequest.DriverName,
+        //mobileNumber: '',
+        storeCode: StoreNumber,
+        transactionTime: dob,
+        items: items,
+        subtotal: subtotal,
+        payment: payment,
+        status: ''
+    });
+
+    //to do create each item model
+    return future;
+}
 /**
  * Order push to store
  * @param req
@@ -246,29 +331,71 @@ function mapToOrder(jsonrequest,brand){
  * @param next
  */
 function ordering(req, res, next) {
-    //logger.info(printText('request inbound',req.body));
-    var jsonrequest = req.body;
-    var brand = req.params.brand.toUpperCase();
-    if(jsonrequest.hasOwnProperty('SDM')) {
-        var order = mapToOrder(jsonrequest, brand);
-        //logger.info(printText('map order',order));
-        order.save()
-            .then(savedOrder => {
-                fileHandler.orderOutputFile(savedOrder, order.site + '.' + formatDate(Date.now()));
-                pushOnLine(order.site, savedOrder);
+    try{
+        //logger.info(printText('request inbound',req.body));
+        var jsonrequest = req.body;
+        var brand = req.params.brand.toUpperCase();
+        if(jsonrequest.hasOwnProperty('SDM')) {
+            var orderType = jsonrequest.SDM.OrderType
 
-                //res.json(savedOrder)
-                res.json({
-                    code: httpStatus.OK,
-                    message: httpStatus[httpStatus.OK],
-                    stack:{}
+            var order = mapToOrder(jsonrequest, brand);
+            logger.info('incomming order '+ order.orderNumber);
+
+            order.save()
+                .then(savedOrder => {
+                    fileHandler.orderOutputFile(savedOrder, order.site + '.' + formatDate(Date.now()));
+                    pushOnLine(order.site, savedOrder ,orderType);
+
+                    //future order
+                    if(orderType == 1){
+                            //logger.info(orderType)
+                        //Filter futrue
+                        var future = mapToFutureOrder(jsonrequest, brand);
+                            //logger.info(future.dueDate)
+                        var now = moment()
+                        var due = moment(future.dueDate)
+                        var duration = moment.duration(due.diff(now));
+                        var days = duration.asDays();
+                        if(days >= 1){
+                            var futureDay = mapToFutureOrder(jsonrequest, brand);
+                                //logger.info(due.format('YYYY-MM-DD HH:mm:ss'))
+                            var morning = moment(due.format('YYYY-MM-DD')+' '+'06:00:00', 'YYYY-MM-DD HH:mm:ss').toDate();
+                                //logger.info(morning)
+                            futureDay.alertDate = morning
+                            futureDay.save()
+                                .then(futureSaved => {
+                                    fileHandler.futureOutputFile(futureSaved, 'future.json')
+                                })
+                        }
+                        var hours = duration.asHours();
+                        if(hours >=1){
+                            var futureHour = mapToFutureOrder(jsonrequest, brand);
+                            var beforeHour = moment(due.add((parseInt(config.alert_future_min) * -1),'minutes').format('YYYY-MM-DD HH:mm:ss')).toDate();
+                            futureHour.alertDate = beforeHour
+                            futureHour.save()
+                                .then(futureSaved => {
+                                    fileHandler.futureOutputFile(futureSaved, 'future.json')
+                                })
+                        }
+                    }
+
+                    //res.json(savedOrder)
+                    res.json({
+                        code: httpStatus.OK,
+                        message: httpStatus[httpStatus.OK],
+                        stack:{}
+                    })
                 })
-            })
-            //.then() // push message to line group store
-            .catch(e => next(e));
-    }else{
-        const err = new APIError('Invalid data', httpStatus.BAD_REQUEST ,true);
-        next(err);
+                //.then() // push message to line group store
+                .catch(e => next(e));
+
+        }else{
+            const err = new APIError('Invalid data', httpStatus.BAD_REQUEST ,true);
+            next(err);
+        }
+
+    }catch(error){
+        console.log('order controller error '+error)
     }
 }
 
@@ -282,4 +409,13 @@ function findOrder(req, res, next) {
         .catch(e => next(e));
 }
 
-module.exports = { ordering ,findOrder};
+function findFuture(req, res, next) {
+    var brand = req.params.brand.toUpperCase();
+    Future.getBrand(brand)
+        .then(orders =>{
+            res.json(orders)
+        })
+        .catch(e => next(e));
+}
+
+module.exports = { ordering ,findOrder ,findFuture ,pushOnLine ,findLineGroup};

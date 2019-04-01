@@ -1,12 +1,15 @@
 var os = require('os');
+var logger = require('./config/winston')(__filename)
 var mongoose = require('mongoose');
 const Store = require('./routes/line/bot.store.model');
 const Order = require('./routes/line/bot.order.model');
+const Future = require('./routes/line/bot.future.model');
 
 var MongoMemoryServer = require('mongodb-memory-server');
 
 const storeFolder = './stores/';
 const orderFolder = './orders/';
+const futureFolder = './future/';
 const fs = require('fs');
 
 const fileHandler = require('./routes/helpers/FileHandler')
@@ -113,85 +116,99 @@ mongod.getConnectionString().then((mongoUri) => {
         throw new Error(`Mongoose: unable to connect to database: ${mongoUri}`);
     });
     mongoose.connection.on('connected', () => {
-        console.info('Mongoose: connection created')
+        logger.info('Mongoose: cached mongo connection created')
         //console.info(mongoose.connection.readyState)
 
-        fs.readdir(storeFolder, (err, files) => {
-            files.forEach(file => {
-                //console.log(file);
-                fileHandler.jsonReadFile(storeFolder+file)
-                    .then(storeGroup => {
-                        //instance model
-                        var store = new Store(
-                            {
-                                site: storeGroup.storeId,
-                                groupId: storeGroup.groupId
-                            })
-                        /*
-                        store.save(function (err,savedStore) {
-                            if(err) console.error('Mongoose: error insert store')
-                            console.info('Mongoose: insert store '+storeGroup.storeId+',groupId '+storeGroup.groupId)
-                        })
-                        */
+            fs.readdir(storeFolder, (err, files) => {
+                Promise.all(
+                    files.map(file => {
+                        //console.log(file);
+                        fileHandler.jsonReadFile(storeFolder+file)
+                            .then(storeGroup => {
+                                //instance model
+                                var store = new Store(
+                                    {
+                                        site: storeGroup.storeId,
+                                        groupId: storeGroup.groupId
+                                    })
+                                /*
+                                store.save(function (err,savedStore) {
+                                    if(err) console.error('Mongoose: error insert store')
+                                    console.info('Mongoose: insert store '+storeGroup.storeId+',groupId '+storeGroup.groupId)
+                                })
+                                */
 
-                        store.save()
-                            .then(savedStore => {
-                                console.info('Mongoose: insert store '+storeGroup.storeId+',groupId '+storeGroup.groupId)
-                                return null;
+                                store.save()
+                                    .then(savedStore => {
+                                        logger.info('Mongoose: insert store '+storeGroup.storeId+',groupId '+storeGroup.groupId)
+                                        return null;
+                                    })
+                                    .catch(err => {
+                                        logger.error('Mongoose: error insert store '+err)
+                                        return null;
+                                    })
+                                    .finally(function(){return null;})
                             })
                             .catch(err => {
-                                console.error('Mongoose: error insert store')
-                                return null;
+                                logger.error('Mongoose: error insert store '+err)
                             })
-                            .finally(function(){return null;})
-
-
                     })
-                    .catch()
-            });
-        })
-
-
-        fs.readdir(orderFolder, (err, folders) => {
-            folders.forEach(folder => {
-                fs.readdir(orderFolder+folder , (err, files) => {
-                    files.forEach(file => {
-                        if(file.indexOf(dateNow) > -1){
-                            //load only current date
-                            fileHandler.jsonReadFile(orderFolder+folder+'/'+file)
-                                .then( listorder =>{
-                                    listorder.forEach(order => {
-                                        console.info('Mongoose: insert order '+order.orderNumber)
-                                        Order.create(order)
-                                            .then()
-                                            .catch(err => console.log(err))
-                                    })
-                                })
-                        }
-                    })
-                })
+                )
             })
-        })
 
-        //assign job
-        agenda.clearHistoryOrder(mongoUri)
+            fs.readdir(orderFolder, (err, folders) => {
+                Promise.all(
+                    folders.map(folder => {
+                        fs.readdir(orderFolder+folder , (err, files) => {
+                            Promise.all(
+                            files.map(file => {
+                                if(file.indexOf(dateNow) > -1){
+                                    //load only current date
+                                    fileHandler.jsonReadFile(orderFolder+folder+'/'+file)
+                                        .then( listorder =>{
+                                            listorder.map(order => {
+                                                Order.create(order)
+                                                    .then(logger.info('Mongoose: insert order '+order.orderNumber))
+                                                    .catch(err => logger.log('Mongoose: error insert order '+err))
+                                            })
+                                        })
+                                        .catch(err => {
+                                            logger.error('Mongoose: error insert order '+err)
+                                        })
+                                }
+                            })
+                            )
+                        })
+                    })
+                ).then(
+                    //assign job
+                    agenda.clearHistoryOrder(mongoUri)
+                )
+            })
 
-        /*
-        defindStore()
-            .then(
-                StoreSchema => {
-                    //var Store = mongoose.model('Store', StoreSchema);
-
-
-
-                }
-            )
-            .catch(err => console.info('Mongoose: Store model error :'+err))
-        */
-
+            fs.readdir(futureFolder, (err, files) => {
+                Promise.all(
+                    files.map(file => {
+                        fileHandler.jsonReadFile(futureFolder+file)
+                            .then(future =>{
+                                Future.create(future)
+                                    .then(logger.info('Mongoose: insert future order '+future.orderNumber +' alert date '+future.alertDate))
+                                    .catch(err => logger.log('Mongoose: error insert future order '+err))
+                            })
+                            .catch(err => {
+                                logger.error('Mongoose: error insert future order '+err)
+                            })
+                    })
+                ).then( () => {
+                        //JOB
+                        agenda.futureOrderMorning(mongoUri);
+                        agenda.viewJob()
+                    }
+                )
+            })
     });
     mongoose.connection.on('disconnected', () => {
-        console.info('Mongoose: connection disconnected')
+        logger.info('Mongoose: connection disconnected')
     });
 
 });
