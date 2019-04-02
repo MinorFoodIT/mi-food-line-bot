@@ -1,0 +1,22 @@
+{
+  "type": "box",
+  "layout": "horizontal",
+  "margin": "xs",
+  "spacing": "sm",
+  "contents": [
+    {
+      "type": "text",
+      "text": "** Future Order **",
+      "size": "sm",
+      "color": "#009999",
+      "flex": 0
+    },
+    {
+      "type": "text",
+      "text": "",
+      "size": "sm",
+      "color": "#009999",
+      "align": "end"
+    }
+  ]
+}
