@@ -1,9 +1,11 @@
 const Order = require('./bot.order.model');
 const fileHandler = require('./../helpers/FileHandler')
 var logger = require('./../../config/winston')(__filename)
+var _ = require('lodash')
 
 var {middleware ,handlePreErr ,line_replyMessage ,line_pushMessage} = require('./../helpers/line.handler')
 var joinmessage = require('../../config/flex/joinmessage');
+var settingmessage = require('../../config/flex/reply_site_setting');
 
 function setGroupObj(req){
     groupObj = req.body.events[0].source
@@ -50,16 +52,24 @@ function webhook(req,res){
 
             msgText = req.body.events[0].message.text
 
-            if(checkPrefix('^(store=|site=)')){
-                msgText = msgText.replace('store=','')
+            if(checkPrefix('^(@store=|@site=)')){
+                msgText = msgText.replace('@site=','').toUpperCase()
                 groupObj.storeId = msgText
                 //write to file name with source's groupID
                 fileHandler.storeOutputFile(groupObj,groupId)
-            }else if(checkPrefix('^(name=)')){
-                msgText = msgText.replace('name=','')
+                var replymsg = _.cloneDeep(settingmessage)
+                replymsg.body.contents[1].text=msgText
+                line_replyMessage(req.body.events[0].replyToken ,{ type: 'flex',altText:'Current site', contents: replymsg });
+
+            }else if(checkPrefix('^(@name=)')){
+                msgText = msgText.replace('@name=','').toUpperCase()
                 //to do : load old object
                 groupObj.storeName = msgText
                 fileHandler.storeOutputFile(groupObj,groupId)
+                var replymsg = _.cloneDeep(settingmessage)
+                replymsg.body.contents[1].text=msgText
+                line_replyMessage(req.body.events[0].replyToken ,{ type: 'flex',altText:'Current site', contents: replymsg });
+
             }
         }
     }

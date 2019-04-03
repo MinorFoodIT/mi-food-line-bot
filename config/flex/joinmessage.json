@@ -11,14 +11,21 @@
     "contents": [
       {
         "type": "text",
-        "text": "กรุณาตั้งค่า รหัสสาขาโดยระบุดังนี้",
+        "text": "เริ่มต้นใช้งาน notification",
         "weight": "bold",
         "size": "sm",
         "margin": "md"
       },
       {
         "type": "text",
-        "text": "site=รหัสสาขา",
+        "text": "กรุณาตั้งค่า รหัสสาขาโดยระบุตามรูปแบบดังนี้",
+        "weight": "bold",
+        "size": "sm",
+        "margin": "md"
+      },
+      {
+        "type": "text",
+        "text": "@site=รหัสสาขา 4 หลัก",
         "size": "xs",
         "color": "#0A0A0A",
         "wrap": true
@@ -43,7 +50,7 @@
       },
       {
         "type": "text",
-        "text": "site=DQ1001",
+        "text": "@site=DQ1001",
         "size": "xs",
         "color": "#0A0A0A",
         "wrap": true

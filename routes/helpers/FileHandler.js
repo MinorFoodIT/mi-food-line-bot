@@ -103,15 +103,6 @@ function futureOutputFile(obj,filename){
                     })
                     .catch(error => logger.info('future.json create file error => '+error))
                 */
-                /*
-                var futures = JSON.parse(list); //now it an object
-                futures.push(obj); //add some data
-                var json = JSON.stringify(futures); //convert it back to json
-                fs.writeFile(futureFile, json, 'utf8', (data) => {
-                    logger.info('Callback => success ,future append file to '+filename+' complete '+obj._id)
-                    resolve(data)
-                });
-                */
             })
     })
 }
