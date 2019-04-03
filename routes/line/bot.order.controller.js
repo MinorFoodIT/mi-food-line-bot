@@ -4,6 +4,7 @@ var config = require('./../../config/config')
 var logger = require('./../../config/winston')(__filename)
 const APIError = require('./../helpers/APIError');
 const httpStatus = require('http-status');
+var kue = require('./../../kuetask');
 
 var {middleware ,handlePreErr ,line_replyMessage ,line_pushMessage} = require('./../helpers/line.handler')
 const fileHandler = require('./../helpers/FileHandler')
@@ -343,8 +344,18 @@ function ordering(req, res, next) {
 
             order.save()
                 .then(savedOrder => {
-                    fileHandler.orderOutputFile(savedOrder, order.site + '.' + formatDate(Date.now()));
+                    //fileHandler.orderOutputFile(savedOrder, order.site + '.' + formatDate(Date.now()));
                     pushOnLine(order.site, savedOrder ,orderType);
+
+                    var job = kue.reqQueue.create('1112Delivery',savedOrder)
+                                    .priority('normal').attempts(2)
+                                    .removeOnComplete( true )
+                                    .save(err =>{
+                                        if(err) {
+                                            logger.info('reqQueue.1112Delivery error ' + err)
+                                        }
+                                    })
+                    job.log({orderId: savedOrder.orderNumber ,brand: savedOrder.brand })
 
                     //future order
                     if(orderType == 1){
@@ -364,21 +375,51 @@ function ordering(req, res, next) {
                             futureDay.alertDate = morning
                             futureDay.save()
                                 .then(futureSaved => {
-                                    fileHandler.futureOutputFile(futureSaved, 'future.json')
-                                })
-                        }
-                        var hours = duration.asHours();
-                        if(hours >=1){
-                            var futureHour = mapToFutureOrder(jsonrequest, brand);
-                            var beforeHour = moment(due.add((parseInt(config.alert_future_min) * -1),'minutes').format('YYYY-MM-DD HH:mm:ss')).toDate();
-                            futureHour.alertDate = beforeHour
-                            futureHour.save()
-                                .then(futureSaved => {
-                                    fileHandler.futureOutputFile(futureSaved, 'future.json')
-                                })
-                        }
-                    }
+                                    //Save alert Morning
+                                    var job = kue.reqQueue.create('1112Delivery(future)',futureSaved)
+                                        .priority('normal').attempts(2)
+                                        .removeOnComplete( true )
+                                        .save(err =>{
+                                            if(err) {
+                                                logger.info('reqQueue.1112Delivery(future) error ' + err)
+                                            }
 
+                                            var hours = duration.asHours();
+                                            if (hours >= 1) {
+                                                var futureHour = mapToFutureOrder(jsonrequest, brand);
+                                                var beforeHour = moment(due.add((parseInt(config.alert_future_min) * -1), 'minutes').format('YYYY-MM-DD HH:mm:ss')).toDate();
+                                                futureHour.alertDate = beforeHour
+                                                futureHour.save()
+                                                    .then(futureSaved => {
+                                                        //save alert before time of due
+                                                        var job = kue.reqQueue.create('1112Delivery(future)',futureSaved)
+                                                            .priority('normal').attempts(2)
+                                                            .removeOnComplete( true )
+                                                            .save(err => {
+                                                                if (err) {
+                                                                    logger.info('reqQueue.1112Delivery(future) error ' + err)
+                                                                }
+                                                            })
+                                                        job.log({orderId: futureSaved.orderNumber ,brand: futureSaved.brand ,dueDate: futureSaved.alertDate })
+
+                                                        //fileHandler.futureOutputFile(futureSaved, 'future.json')
+                                                    })
+                                            }
+
+                                        })
+                                    job.log({orderId: futureSaved.orderNumber ,brand: futureSaved.brand ,dueDate: futureSaved.alertDate })
+
+                                    /*
+                                    Promise.all(
+                                        fileHandler.futureOutputFile(futureSaved, 'future.json')
+                                    ).then( () => {
+
+                                    })
+                                    */
+                                })
+                        }
+
+                    }
                     //res.json(savedOrder)
                     res.json({
                         code: httpStatus.OK,

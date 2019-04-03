@@ -5,6 +5,14 @@ const Store = require('./../line/bot.store.model');
 var logger = require('./../../config/winston')(__filename)
 var fs = require('fs');
 
+function removeFutureOutputFile(obj,filename){
+
+    file = path.join(path.dirname(require.main.filename),'/../future/'+filename+json_file_extention)
+    fs.unlink(file ,res => {
+        Store.find({'_id': obj._id }).remove().exec();
+    })
+}
+
 function removeStoreOutputFile(obj,filename){
     //Remove file of groupId
     //Remove site object out of cache mem
@@ -66,26 +74,46 @@ function storeOutputFile(obj,filename){
         })
         .catch(error => logger.info(error))
 }
+
 function futureOutputFile(obj,filename){
-    futureFile = path.join(path.dirname(require.main.filename),'/../future/'+filename)
-    jsonReadFile(futureFile)
-        .then(list =>{
-            list.push(obj);
-            jsonfile.writeFile(futureFile, list , { spaces: 2} )
-                .then(res => {
-                    logger.info('Callback => success ,order append file to '+filename+' complete')
-                })
-                .catch(error => logger.info('future.json append file error => '+error))
-        })
-        .catch(err =>{
-            var list = [];
-            list.push(obj);
-            jsonfile.writeFile(futureFile, list , { flag: 'a' ,spaces: 2} )
-                .then(res => {
-                    logger.info('Callback => success ,order create file to '+filename+' complete')
-                })
-                .catch(error => logger.info('future.json create file error => '+error))
-        })
+    return new Promise((resolve, reject) => {
+        futureFile = path.join(path.dirname(require.main.filename),'/../future/'+filename)
+        jsonReadFile(futureFile)
+            .then(list =>{
+                list.push(obj);
+                jsonfile.writeFile(futureFile, list , { spaces: 2} )
+                    .then(res => {
+                        logger.info('Callback => success ,future append file to '+filename+' complete '+obj._id)
+                        resolve(res)
+                    })
+                    .catch(error => {
+                        logger.info('future.json append file error => '+error)
+                        reject(error)
+                    })
+            })
+            .catch(err =>{
+                logger.info('future.json file error => '+err)
+                reject(err)
+                /*
+                var list = [];
+                list.push(obj);
+                jsonfile.writeFile(futureFile, list , { flag: 'a' ,spaces: 2} )
+                    .then(res => {
+                        logger.info('Callback => success ,future create file to '+filename+' complete')
+                    })
+                    .catch(error => logger.info('future.json create file error => '+error))
+                */
+                /*
+                var futures = JSON.parse(list); //now it an object
+                futures.push(obj); //add some data
+                var json = JSON.stringify(futures); //convert it back to json
+                fs.writeFile(futureFile, json, 'utf8', (data) => {
+                    logger.info('Callback => success ,future append file to '+filename+' complete '+obj._id)
+                    resolve(data)
+                });
+                */
+            })
+    })
 }
 
 function orderOutputFile(obj,filename){
@@ -126,4 +154,4 @@ function jsonReadFile(filename){
 
 }
 
-module.exports = { storeOutputFile ,orderOutputFile ,jsonReadFile ,removeStoreOutputFile ,futureOutputFile}
+module.exports = { storeOutputFile ,orderOutputFile ,jsonReadFile ,removeStoreOutputFile ,removeFutureOutputFile ,futureOutputFile}

@@ -202,7 +202,8 @@ mongod.getConnectionString().then((mongoUri) => {
                 ).then( () => {
                         //JOB
                         agenda.futureOrderMorning(mongoUri);
-                        agenda.viewJob()
+                        agenda.futureOrder(mongoUri);
+                        agenda.clearHistoryFuture(mongoUri);
                     }
                 )
             })

@@ -6,6 +6,7 @@ const HTTPError = require('@line/bot-sdk').HTTPError;
 const Client = require('@line/bot-sdk').Client;
 const client = new Client(config);
 var logger = require('./../../config/winston')(__filename)
+const fileHandler = require('./../helpers/FileHandler')
 
 const Order = require('./../line/bot.order.model');
 /**
@@ -99,7 +100,11 @@ function line_pushMessage(orderType,orderSaved,token ,contentMessage){
         .then( () => {
             if(orderType == 1){
                 Future.findOneAndUpdate({_id: orderSaved._id}, {$set: {status: "LINE_SENT",alerted: true }})
-                    .then().catch(err => logger.info('LINE Push message error '+err))
+                    .then(
+                        //Future.find({_id: orderSaved._id}).deleteMany().exec()
+                        //remove objectId from file
+                        fileHandler.removeFutureOutputFile(orderSaved,'future')
+                    ).catch(err => logger.info('LINE Push message error '+err))
             }else {
                 Order.findOneAndUpdate({_id: orderSaved._id}, {$set: {status: "LINE_SENT"}})
                     .then().catch(err => logger.info('LINE Push message error '+err))
@@ -108,7 +113,10 @@ function line_pushMessage(orderType,orderSaved,token ,contentMessage){
         .catch((err) => {
             if(orderType == 1){
                 Future.findOneAndUpdate({_id: orderSaved._id}, {$set: {status: "LINE_FAIL",alerted: false }})
-                    .then().catch(err => logger.info('LINE Push message error '+err))
+                    .then(
+                        //remove objectId from file
+                        fileHandler.removeFutureOutputFile(orderSaved,'future')
+                    ).catch(err => logger.info('LINE Push message error '+err))
             }else {
                 Order.findOneAndUpdate({_id: orderSaved._id}, {$set: {status: "LINE_FAIL"}})
                     .then().catch(err => logger.info('LINE Push message error '+err))
