@@ -1,5 +1,5 @@
-stores\*
-orders\*
+stores/*
+orders/*
 node_modules
 .idea
 log
