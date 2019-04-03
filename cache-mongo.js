@@ -1,5 +1,6 @@
 var os = require('os');
 var logger = require('./config/winston')(__filename)
+var tag = require('./config/tag')
 var mongoose = require('mongoose');
 const Store = require('./routes/line/bot.store.model');
 const Order = require('./routes/line/bot.order.model');
@@ -116,9 +117,8 @@ mongod.getConnectionString().then((mongoUri) => {
         throw new Error(`Mongoose: unable to connect to database: ${mongoUri}`);
     });
     mongoose.connection.on('connected', () => {
-        logger.info('Mongoose: cached mongo connection created')
-        //console.info(mongoose.connection.readyState)
-
+        logger.info(tag.mongoose+'cached connection created')
+                //console.info(mongoose.connection.readyState)
             fs.readdir(storeFolder, (err, files) => {
                 Promise.all(
                     files.map(file => {
@@ -140,22 +140,25 @@ mongod.getConnectionString().then((mongoUri) => {
 
                                 store.save()
                                     .then(savedStore => {
-                                        logger.info('Mongoose: insert store '+storeGroup.storeId+',groupId '+storeGroup.groupId)
+                                        logger.info(tag.mongoose+'load store '+storeGroup.storeId+',groupId '+storeGroup.groupId)
                                         return null;
                                     })
                                     .catch(err => {
-                                        logger.error('Mongoose: error insert store '+err)
+                                        logger.error(tag.mongoose+'store inserted error '+err)
                                         return null;
                                     })
                                     .finally(function(){return null;})
                             })
                             .catch(err => {
-                                logger.error('Mongoose: error insert store '+err)
+                                logger.error(tag.mongoose+'store inserted error '+err)
                             })
                     })
                 )
             })
 
+            /*
+             * Deprecated not store order to file
+             *//*
             fs.readdir(orderFolder, (err, folders) => {
                 Promise.all(
                     folders.map(folder => {
@@ -168,12 +171,12 @@ mongod.getConnectionString().then((mongoUri) => {
                                         .then( listorder =>{
                                             listorder.map(order => {
                                                 Order.create(order)
-                                                    .then(logger.info('Mongoose: insert order '+order.orderNumber))
-                                                    .catch(err => logger.log('Mongoose: error insert order '+err))
+                                                    .then(logger.info(tag.mongoose+'insert order '+order.orderNumber))
+                                                    .catch(err => logger.log(tag.mongoose+'order inserted error '+err))
                                             })
                                         })
                                         .catch(err => {
-                                            logger.error('Mongoose: error insert order '+err)
+                                            logger.log(tag.mongoose+'order inserted error '+err)
                                         })
                                 }
                             })
@@ -185,6 +188,7 @@ mongod.getConnectionString().then((mongoUri) => {
                     agenda.clearHistoryOrder(mongoUri)
                 )
             })
+            */
 
             fs.readdir(futureFolder, (err, files) => {
                 Promise.all(
@@ -192,11 +196,11 @@ mongod.getConnectionString().then((mongoUri) => {
                         fileHandler.jsonReadFile(futureFolder+file)
                             .then(future =>{
                                 Future.create(future)
-                                    .then(logger.info('Mongoose: insert future order '+future.orderNumber +' alert date '+future.alertDate))
-                                    .catch(err => logger.log('Mongoose: error insert future order '+err))
+                                    .then(logger.info(tag.mongoose+'load future order '+future.orderNumber +' alert date '+future.alertDate))
+                                    .catch(err => logger.log(tag.mongoose+'load future order error '+err))
                             })
                             .catch(err => {
-                                logger.error('Mongoose: error insert future order '+err)
+                                logger.log(tag.mongoose+'load future order error '+err)
                             })
                     })
                 ).then( () => {
@@ -209,7 +213,7 @@ mongod.getConnectionString().then((mongoUri) => {
             })
     });
     mongoose.connection.on('disconnected', () => {
-        logger.info('Mongoose: connection disconnected')
+        logger.info(tag.mongoose+'connection disconnected')
     });
 
 });

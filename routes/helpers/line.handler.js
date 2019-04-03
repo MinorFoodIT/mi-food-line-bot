@@ -1,4 +1,5 @@
-var config = require('../../config/line.config');
+var config = require('./../../config/line.config');
+var tag = require('./../../config/tag');
 const body_parser_1 = require("body-parser");
 const SignatureValidationFailed = require('@line/bot-sdk').SignatureValidationFailed;
 const JSONParseError = require('@line/bot-sdk').JSONParseError;
@@ -9,6 +10,8 @@ var logger = require('./../../config/winston')(__filename)
 const fileHandler = require('./../helpers/FileHandler')
 
 const Order = require('./../line/bot.order.model');
+const Future = require('./../line/bot.future.model');
+
 /**
  * Line check header signature
  */
@@ -91,41 +94,53 @@ function line_replyMessage(token ,contentMessage){
     client.replyMessage(token,contentMessage)
         .catch((err) => {
             if (err instanceof HTTPError) {
-                logger.error(err.statusCode);
+                logger.error(tag.line_reply_error+err.statusCode);
             }});
 }
 
 function line_pushMessage(orderType,orderSaved,token ,contentMessage){
+        //logger.info(JSON.stringify(contentMessage))
+    client.pushMessage(token,contentMessage)
+        .then( () => {
+            Order.findOneAndUpdate({_id: orderSaved._id}, {$set: {status: "LINE_SENT"}})
+                .then().catch(err => logger.info(tag.line_push_error+err))
+        })
+        .catch((err) => {
+            Order.findOneAndUpdate({_id: orderSaved._id}, {$set: {status: "LINE_FAIL"}})
+                .then().catch(err => logger.info(tag.line_push_error+err))
+            if (err instanceof HTTPError) {
+                logger.error(err.statusCode);
+            }
+        });
+}
+
+function line_pushMessageFuture(orderType,orderSaved,token ,contentMessage){
+        //logger.info(JSON.stringify(contentMessage))
     client.pushMessage(token,contentMessage)
         .then( () => {
             if(orderType == 1){
                 Future.findOneAndUpdate({_id: orderSaved._id}, {$set: {status: "LINE_SENT",alerted: true }})
-                    .then(
-                        //Future.find({_id: orderSaved._id}).deleteMany().exec()
+                    .then( async () => {
+                        Future.find({_id: orderSaved._id}).deleteMany().exec()
                         //remove objectId from file
-                        fileHandler.removeFutureOutputFile(orderSaved,'future')
-                    ).catch(err => logger.info('LINE Push message error '+err))
-            }else {
-                Order.findOneAndUpdate({_id: orderSaved._id}, {$set: {status: "LINE_SENT"}})
-                    .then().catch(err => logger.info('LINE Push message error '+err))
+                        await fileHandler.removeFutureOutputFile(orderSaved, 'future')
+                    }).catch(err => logger.info(tag.line_push_error+err))
             }
         })
         .catch((err) => {
+            if (err instanceof HTTPError) {
+                logger.error(err.statusCode);
+            }
+
             if(orderType == 1){
                 Future.findOneAndUpdate({_id: orderSaved._id}, {$set: {status: "LINE_FAIL",alerted: false }})
                     .then(
                         //remove objectId from file
-                        fileHandler.removeFutureOutputFile(orderSaved,'future')
-                    ).catch(err => logger.info('LINE Push message error '+err))
-            }else {
-                Order.findOneAndUpdate({_id: orderSaved._id}, {$set: {status: "LINE_FAIL"}})
-                    .then().catch(err => logger.info('LINE Push message error '+err))
-                if (err instanceof HTTPError) {
-                    logger.error(err.statusCode);
-                }
+                        //fileHandler.removeFutureOutputFile(orderSaved,'future')
+                    ).catch(err => logger.info(tag.line_push_error+err))
             }
         });
 }
 
 
-module.exports = { middleware ,handlePreErr ,line_replyMessage ,line_pushMessage}
+module.exports = { middleware ,handlePreErr ,line_replyMessage ,line_pushMessage ,line_pushMessageFuture}

@@ -61,6 +61,9 @@ const FutureSchema = new mongoose.Schema({
     payment: {
         type: String
     },
+    discount: {
+        type: String
+    },
     status: {
         type: String
     }

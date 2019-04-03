@@ -1,12 +1,15 @@
 var _ = require('lodash');
 var moment = require('moment');
 var config = require('./../../config/config')
+var tag = require('./../../config/tag')
 var logger = require('./../../config/winston')(__filename)
 const APIError = require('./../helpers/APIError');
 const httpStatus = require('http-status');
 var kue = require('./../../kuetask');
+var redis = require('redis')
+var client = require('./../../redis-client')
 
-var {middleware ,handlePreErr ,line_replyMessage ,line_pushMessage} = require('./../helpers/line.handler')
+var {middleware ,handlePreErr ,line_replyMessage ,line_pushMessage, line_pushMessageFuture} = require('./../helpers/line.handler')
 const fileHandler = require('./../helpers/FileHandler')
 var {formatJSON , formatJSONWrap ,printText ,isUndefined ,isNull} = require('./../helpers/text.handler')
 
@@ -33,7 +36,11 @@ var body_contents = require('./../../config/flex/receipt/body.contents')
 var body_item = require('./../../config/flex/receipt/body.item')
 
 var foot_separator = require('./../../config/flex/receipt/hero.separator_extra')
+var foot_complete_subtotal = require('../../config/flex/receipt/foot.complete_subtotal')
+var foot_discount = require('./../../config/flex/receipt/foot.discount')
 var foot_subtotal = require('./../../config/flex/receipt/foot.subtotal')
+var foot_vat7 = require('./../../config/flex/receipt/foot.vat7')
+var foot_total = require('./../../config/flex/receipt/foot.total')
 var foot_payment = require('./../../config/flex/receipt/foot.payments')
 
 //json query
@@ -70,36 +77,23 @@ function formatDate(date) {
     return [year, month, day].join('-');
 }
 
-function formatMessage(obj) {
-
-    /*
-    logger.info('format param mode :'+obj)
-    var sb = new StringBuilder();
-    sb.append("         "+obj.site+"            ");
-    sb.appendLine();
-    sb.append("Server:                  "+"date");
-    sb.appendLine();
-    sb.append("Check/Order              "+obj.orderNumber);
-    sb.appendLine();
-    sb.appendLine();
-    sb.append("Order Type:  "+obj.mode)
-    sb.appendLine();
-    sb.appendLine();
-    sb.appendLine("*** 1112Delivery ***");
-    sb.appendLine();
-
-    sb.appendLine("[items]");
-    sb.appendLine();
-    */
-
-    var msg = 'Alert: '+ obj.mode+' channel ,order no '+obj.orderNumber +' mobile '+ obj.mobileNumber+ ' ,time '+obj.transactionTime+' is incomming.'
-    return msg;
-}
-
 function findLineGroup(site){
     return new Promise(
-        (resolve ,reject) => {
-            //var Store = mongoose.model('Store', StoreSchema);
+        async (resolve ,reject) => {
+            //Find in regis
+            const linegroup = await client.get(site);
+            if(linegroup){
+                var siteObj = {
+                    groupId: linegroup,
+                    userId: "",
+                    type: "group",
+                    storeId: site,
+                    storeName: ""
+                }
+                resolve(siteObj)
+            }
+
+            //Find from file cached in memory
             Store.find({ 'site': site }, 'groupId', function (err, siteObj) {
                 //if (err) return handleError(err);
                 if(err) reject(err)
@@ -117,12 +111,28 @@ function pushOnLine(site,order,orderType){
             siteObj => {
                 if(siteObj.length > 0){
                     if(orderType == 1)
-                        logger.info('Push order message to '+site);
+                        logger.info(tag.push_order+order.orderNumber+ ' to '+site);
                     else
-                        logger.info('Push future message to '+site);
+                        logger.info(tag.push_future_order+order.orderNumber+ ' to '+site);
 
-                    //line_pushMessage('C6d421685d70593dbcce2427fe20cde3f',{ type: 'flex',altText:'1112Delivery', contents: bubble });
                     line_pushMessage(orderType,order,siteObj[0].groupId,{ type: 'flex',altText:'1112Delivery', contents: buildReceipt(order,orderType) })
+                }
+            }
+        )
+        .catch(err => logger.info('Could not push message '+err))
+}
+
+function pushOnLineFutureOrder(site,order,orderType){
+    findLineGroup(site)
+        .then(
+            siteObj => {
+                if(siteObj.length > 0){
+                    if(orderType == 1)
+                        logger.info(tag.push_order+order.orderNumber+ ' to '+site);
+                    else
+                        logger.info(tag.push_future_order+order.orderNumber+ ' to '+site);
+
+                    line_pushMessageFuture(orderType,order,siteObj[0].groupId,{ type: 'flex',altText:'1112Delivery', contents: buildReceipt(order,orderType) })
                 }
             }
         )
@@ -163,7 +173,7 @@ function buildReceipt(order,orderType) {
         item.contents[0].text = items[i].itemName;
         item.contents[1].text = items[i].amount.toString();
         receipt_items = _.concat(receipt_items,item);
-        logger.info(printText('item['+i+']',receipt_items));
+            //logger.info(printText('item['+i+']',receipt_items));
     }
     itemContents.contents = receipt_items;
 
@@ -172,6 +182,8 @@ function buildReceipt(order,orderType) {
     receiptRoot.body.contents.push(headtext);
     receiptRoot.body.contents.push(head_spaceline);
     if(orderType == 1){
+            //logger.info('dueDate '+order.dueDate)
+        headfuture.contents[1].text = moment(order.dueDate).format('YYYY-MM-DD HH:mm:ss');
         receiptRoot.body.contents.push(headfuture);
     }
     headdate.contents[1].text = formatDate(Date.now());
@@ -183,12 +195,18 @@ function buildReceipt(order,orderType) {
     receiptRoot.body.contents.push(hero_separator);
     receiptRoot.body.contents.push(body_head);
     receiptRoot.body.contents.push(itemContents);
-    receiptRoot.body.contents.push(foot_separator);
-    foot_subtotal.contents[1].text = order.subtotal;
+
+    foot_complete_subtotal.contents[1].text = order.subtotal;
+    receiptRoot.body.contents.push(foot_complete_subtotal);
+    foot_discount.contents[1].text = new String( -1 * order.discount).toString();
+    receiptRoot.body.contents.push(foot_discount);
     receiptRoot.body.contents.push(foot_subtotal);
-    foot_payment.contents[1].text = order.payment;
-    receiptRoot.body.contents.push(foot_payment);
-    logger.info(printText('receipt out',receiptRoot));
+    receiptRoot.body.contents.push(foot_vat7);
+    receiptRoot.body.contents.push(foot_total);
+
+    //foot_payment.contents[1].text = order.payment;
+    //receiptRoot.body.contents.push(foot_payment);
+        //logger.info(printText('receipt out',receiptRoot));
     return receiptRoot;
 }
 
@@ -201,6 +219,7 @@ function getValue(jsonObject,key){
 
 }
 
+/*
 function mapToOrder(jsonrequest,brand){
     var orderform = '';
     var orderId = '';
@@ -232,7 +251,7 @@ function mapToOrder(jsonrequest,brand){
                 itemName: itemname,
                 amount: itemprice
             })
-            //logger.info(printText(itemname+'   '+itemprice ,null));
+                //logger.info(printText(itemname+'   '+itemprice ,null));
         }
         mode = jsonrequest.SDM.OrderName.substring(0,jsonrequest.SDM.OrderName.indexOf(' - '));
         StoreName = jsonrequest.SDM.StoreName;
@@ -261,26 +280,29 @@ function mapToOrder(jsonrequest,brand){
     //to do create each item model
     return order;
 }
+*/
 
-function mapToFutureOrder(jsonrequest,brand){
+function mapToOrder(jsonrequest,brand){
     var orderform = '';
     var orderId = '';
     var Note = !isUndefined(jsonrequest.Note)?jsonrequest.Note:'undefined';
     if(!isUndefined(Note)){
         orderform = Note.substring(Note.indexOf('(')+1,Note.indexOf(')'));
-        logger.info(printText('order from :'+orderform,null));
+            //logger.info(printText('order from :'+orderform,null));
 
         var word = 'TPC Order:';
         orderId = Note.substring(Note.indexOf(word)+word.length).trim();
-        logger.info(printText('order='+orderId.trim(),null))
+            //logger.info(printText('order='+orderId.trim(),null))
     }else{
         orderform = '1112delivery';
     }
 
-    var mode = ''; var StoreName ='';var StoreNumber = '';
-    var dob  = ''; var items = []; var subtotal =''; var payment =''; var dueDate ;
+    var orderType = jsonrequest.SDM.OrderType
+    var mode = '' , StoreName ='' ,StoreNumber = '';
+    var dob  = '', items = [] ,subtotal ='' , payment ='' , dueDate , discount = '';
     if(jsonrequest.hasOwnProperty('SDM')){
         dueDate = jsonrequest.SDM.DueTime;
+        discount = jsonrequest.SDM.DiscountTotal;
         dob = !isUndefined(jsonrequest.SDM.DateOfTrans)?jsonrequest.SDM.DateOfTrans:'undefined'; //"DateOfTrans": "0001-01-01T00:00:00",
         var dqlist = _.filter(jsonrequest.SDM.Entries,function(item){
             return _.startsWith(item.Name,brand+'-');
@@ -294,7 +316,7 @@ function mapToFutureOrder(jsonrequest,brand){
                 itemName: itemname,
                 amount: itemprice
             })
-            //logger.info(printText(itemname+'   '+itemprice ,null));
+                //logger.info(printText(itemname+'   '+itemprice ,null));
         }
         mode = jsonrequest.SDM.OrderName.substring(0,jsonrequest.SDM.OrderName.indexOf(' - '));
         StoreName = jsonrequest.SDM.StoreName;
@@ -304,26 +326,49 @@ function mapToFutureOrder(jsonrequest,brand){
 
     }
 
-    const future = new Future({
-        dueDate: dueDate,
-        alert: false,
-        mode: mode,
-        brand: brand, //'DQ'
-        site: brand+StoreNumber,
-        orderFrom: orderform,
-        orderNumber: orderId,
-        userName: jsonrequest.DriverName,
-        //mobileNumber: '',
-        storeCode: StoreNumber,
-        transactionTime: dob,
-        items: items,
-        subtotal: subtotal,
-        payment: payment,
-        status: ''
-    });
+    if(orderType == 1) {
+        const future = new Future({
+            dueDate: dueDate,
+            alert: false,
+            mode: mode,
+            brand: brand, //'DQ'
+            site: brand + StoreNumber,
+            orderFrom: orderform,
+            orderNumber: orderId,
+            userName: jsonrequest.DriverName,
+            //mobileNumber: '',
+            storeCode: StoreNumber,
+            transactionTime: dob,
+            items: items,
+            subtotal: subtotal,
+            payment: payment,
+            discount: discount,
+            status: ''
+        });
 
-    //to do create each item model
-    return future;
+        //to do create each item model
+        return future;
+    }else{
+        const order = new Order({
+            mode: mode,
+            brand: brand, //'DQ'
+            site: brand+StoreNumber,
+            orderFrom: orderform,
+            orderNumber: orderId,
+            userName: jsonrequest.DriverName,
+            //mobileNumber: '',
+            storeCode: StoreNumber,
+            transactionTime: dob,
+            items: items,
+            subtotal: subtotal,
+            payment: payment,
+            discount: discount,
+            status: ''
+        });
+
+        //to do create each item model
+        return order;
+    }
 }
 /**
  * Order push to store
@@ -333,18 +378,18 @@ function mapToFutureOrder(jsonrequest,brand){
  */
 function ordering(req, res, next) {
     try{
-        //logger.info(printText('request inbound',req.body));
         var jsonrequest = req.body;
         var brand = req.params.brand.toUpperCase();
         if(jsonrequest.hasOwnProperty('SDM')) {
             var orderType = jsonrequest.SDM.OrderType
 
             var order = mapToOrder(jsonrequest, brand);
-            logger.info('incomming order '+ order.orderNumber);
 
             order.save()
                 .then(savedOrder => {
-                    //fileHandler.orderOutputFile(savedOrder, order.site + '.' + formatDate(Date.now()));
+                    logger.info(tag.incomming_order+ JSON.stringify(savedOrder));
+                        //Deprecated not store history on files ,instead to console
+                        //fileHandler.orderOutputFile(savedOrder, order.site + '.' + formatDate(Date.now()));
                     pushOnLine(order.site, savedOrder ,orderType);
 
                     var job = kue.reqQueue.create('1112Delivery',savedOrder)
@@ -352,7 +397,7 @@ function ordering(req, res, next) {
                                     .removeOnComplete( true )
                                     .save(err =>{
                                         if(err) {
-                                            logger.info('reqQueue.1112Delivery error ' + err)
+                                            logger.info(tag.reqQueue_1112d_error+ err)
                                         }
                                     })
                     job.log({orderId: savedOrder.orderNumber ,brand: savedOrder.brand })
@@ -361,14 +406,14 @@ function ordering(req, res, next) {
                     if(orderType == 1){
                             //logger.info(orderType)
                         //Filter futrue
-                        var future = mapToFutureOrder(jsonrequest, brand);
+                        var future = mapToOrder(jsonrequest, brand);
                             //logger.info(future.dueDate)
                         var now = moment()
                         var due = moment(future.dueDate)
                         var duration = moment.duration(due.diff(now));
                         var days = duration.asDays();
                         if(days >= 1){
-                            var futureDay = mapToFutureOrder(jsonrequest, brand);
+                            var futureDay = mapToOrder(jsonrequest, brand);
                                 //logger.info(due.format('YYYY-MM-DD HH:mm:ss'))
                             var morning = moment(due.format('YYYY-MM-DD')+' '+'06:00:00', 'YYYY-MM-DD HH:mm:ss').toDate();
                                 //logger.info(morning)
@@ -381,12 +426,12 @@ function ordering(req, res, next) {
                                         .removeOnComplete( true )
                                         .save(err =>{
                                             if(err) {
-                                                logger.info('reqQueue.1112Delivery(future) error ' + err)
+                                                logger.info(tag.reqQueue_1112dfuture_error+ err)
                                             }
 
                                             var hours = duration.asHours();
                                             if (hours >= 1) {
-                                                var futureHour = mapToFutureOrder(jsonrequest, brand);
+                                                var futureHour = mapToOrder(jsonrequest, brand);
                                                 var beforeHour = moment(due.add((parseInt(config.alert_future_min) * -1), 'minutes').format('YYYY-MM-DD HH:mm:ss')).toDate();
                                                 futureHour.alertDate = beforeHour
                                                 futureHour.save()
@@ -397,12 +442,12 @@ function ordering(req, res, next) {
                                                             .removeOnComplete( true )
                                                             .save(err => {
                                                                 if (err) {
-                                                                    logger.info('reqQueue.1112Delivery(future) error ' + err)
+                                                                    logger.info(tag.reqQueue_1112dfuture_error+ err)
                                                                 }
                                                             })
                                                         job.log({orderId: futureSaved.orderNumber ,brand: futureSaved.brand ,dueDate: futureSaved.alertDate })
 
-                                                        //fileHandler.futureOutputFile(futureSaved, 'future.json')
+                                                        fileHandler.futureOutputFile(futureSaved, 'future.json')
                                                     })
                                             }
 
@@ -459,4 +504,4 @@ function findFuture(req, res, next) {
         .catch(e => next(e));
 }
 
-module.exports = { ordering ,findOrder ,findFuture ,pushOnLine ,findLineGroup};
+module.exports = { ordering ,findOrder ,findFuture ,pushOnLine ,pushOnLineFutureOrder ,findLineGroup};

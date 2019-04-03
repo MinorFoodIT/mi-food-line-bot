@@ -15,6 +15,7 @@ var swaggerUi = require('swagger-ui-express'), swaggerDocument = require('./swag
 var swStats = require('swagger-stats');
 var kue = require('kue');
 var kueUiExpress = require('kue-ui-express');
+var redis = require('./redis-client');
 
 const expressWinston = require('express-winston');
 const winstonInstance = require('winston');
@@ -67,10 +68,12 @@ if (config.env === 'development') {
                 maxFiles: 5,
                 colorize: false,
             }),
+            /*
             new (winstonInstance.transports.Console)({
                 json: true,
                 colorize: true
             })
+            */
         ],
         format: winstonInstance.format.combine(
             winstonInstance.format(function dynamicContent(info, opts) {
@@ -89,7 +92,7 @@ if (config.env === 'development') {
 app.use(express.static(path.join(__dirname, 'public'))); //put favicon.ico on public
 app.disable('etag'); //Cache and 304 not modified ,http header with same request
 app.use('/api', routes);
-//app.get('/favicon.ico', (req, res) => res.status(204));
+    //app.get('/favicon.ico', (req, res) => res.status(204));
 
 //swagger
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument));

@@ -2,6 +2,8 @@ const Order = require('./bot.order.model');
 const fileHandler = require('./../helpers/FileHandler')
 var logger = require('./../../config/winston')(__filename)
 var _ = require('lodash')
+var redis = require('redis')
+var client = require('./../../redis-client')
 
 var {middleware ,handlePreErr ,line_replyMessage ,line_pushMessage} = require('./../helpers/line.handler')
 var joinmessage = require('../../config/flex/joinmessage');
@@ -28,13 +30,19 @@ function checkPrefix(prefix){
  * @param next
  */
 
-function webhook(req,res){
+async function webhook(req,res){
 
     if(req.body.events[0].type == 'join'){
         groupId = req.body.events[0].source.groupId;
         groupObj = setGroupObj(req);
         //write to file name with source's groupID
         fileHandler.storeOutputFile(groupObj,groupId)
+
+        const linegroup = await client.get(groupId);
+        if(!linegroup){
+            logger.info('set new group on redis')
+            client.set(groupId, JSON.stringify(groupObj));
+        }
 
         //send reply message to let member setting siteId
         line_replyMessage(req.body.events[0].replyToken ,{ type: 'flex',altText:'Group Join', contents: joinmessage });
@@ -55,20 +63,35 @@ function webhook(req,res){
             if(checkPrefix('^(@store=|@site=)')){
                 msgText = msgText.replace('@site=','').toUpperCase()
                 groupObj.storeId = msgText
+
                 //write to file name with source's groupID
                 fileHandler.storeOutputFile(groupObj,groupId)
-                var replymsg = _.cloneDeep(settingmessage)
-                replymsg.body.contents[1].text=msgText
-                line_replyMessage(req.body.events[0].replyToken ,{ type: 'flex',altText:'Current site', contents: replymsg });
+
+                const linegroup = await client.get(groupId);
+                //if(linegroup) {
+                //    logger.info('update group on redis')
+                client.set(groupId, JSON.stringify(groupObj));
+                //}
+                const linesite = await client.get(msgText); //siteId
+                client.set(msgText,groupId)
+
+                var linegroup2 = await client.get(msgText);
+                logger.info(linegroup2)
+                var linegroup3 = await client.get(groupId);
+                logger.info(linegroup3)
+
+                var replySettingMsg = _.cloneDeep(settingmessage)
+                replySettingMsg.body.contents[1].text=msgText
+                line_replyMessage(req.body.events[0].replyToken ,{ type: 'flex',altText:'Current site', contents: replySettingMsg });
 
             }else if(checkPrefix('^(@name=)')){
                 msgText = msgText.replace('@name=','').toUpperCase()
                 //to do : load old object
                 groupObj.storeName = msgText
                 fileHandler.storeOutputFile(groupObj,groupId)
-                var replymsg = _.cloneDeep(settingmessage)
-                replymsg.body.contents[1].text=msgText
-                line_replyMessage(req.body.events[0].replyToken ,{ type: 'flex',altText:'Current site', contents: replymsg });
+                var replySettingMsg = _.cloneDeep(settingmessage)
+                replySettingMsg.body.contents[1].text=msgText
+                line_replyMessage(req.body.events[0].replyToken ,{ type: 'flex',altText:'Current site', contents: replySettingMsg });
 
             }
         }

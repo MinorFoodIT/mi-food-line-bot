@@ -25,7 +25,7 @@ function futureOrder(url){
                          ,alerted: false})
                 .exec()
                 .then( future => {
-                    orderCtrl.pushOnLine(future.site,future,1)
+                    orderCtrl.pushOnLineFutureOrder(future.site,future,1)
                 })
         });
         agenda.every('5 minute', 'futureOrderBeforeDuetime');
@@ -45,7 +45,7 @@ function futureOrderMorning(url){
                                     '$lte':moment().add(5,'minutes').format('YYYY-MM-DDTHH:mm:ss.SSS')}})
                  .exec()
                  .then( future => {
-                     orderCtrl.pushOnLine(future.site,future,1)
+                     orderCtrl.pushOnLineFutureOrder(future.site,future,1)
                  })
         });
 
@@ -55,6 +55,9 @@ function futureOrderMorning(url){
     });
 }
 
+/*
+* Deprecated not store order into file
+* */
 function clearHistoryOrder(url){
         //console.log(moment().add(-1,'days').format('YYYY-MM-DDTHH:mm:ss.SSS')+'Z')
     //const agenda = new Agenda()
@@ -111,12 +114,12 @@ function clearHistoryFuture(url){
 }
 
 function viewJob(req, res, next){
-    logger.info('processor view job running')
+    logger.info('To view processor job running')
     //agenda.on('ready', function() {
-        logger.info('agenda is started')
+        //logger.info('agenda is started')
         agenda.jobs()
             .then( jobs =>{
-                logger.info('found jobs')
+                //logger.info('found jobs')
                 var Jobs = [];
                 jobs.map(job => {
                     Jobs.push(job.agenda.attrs)

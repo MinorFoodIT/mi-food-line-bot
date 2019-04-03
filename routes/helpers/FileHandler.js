@@ -4,13 +4,27 @@ const json_file_extention = '.json'
 const Store = require('./../line/bot.store.model');
 var logger = require('./../../config/winston')(__filename)
 var fs = require('fs');
+var _ = require('lodash');
 
 function removeFutureOutputFile(obj,filename){
-
-    file = path.join(path.dirname(require.main.filename),'/../future/'+filename+json_file_extention)
-    fs.unlink(file ,res => {
-        Store.find({'_id': obj._id }).remove().exec();
-    })
+    return new Promise(
+        (resolve, reject) => {
+            file = path.join(path.dirname(require.main.filename),'/../future/'+filename+json_file_extention)
+            jsonReadFile(futureFile)
+                .then(list =>{
+                   var removed = _.remove(list, function(future) {
+                        return future._id = obj._id
+                    })
+                    jsonfile.writeFile(futureFile, removed , { spaces: 2} )
+                        .then(res => {
+                            resolve(res)
+                        })
+                        .catch(error => {
+                            reject(error)
+                        })
+                })
+        }
+    )
 }
 
 function removeStoreOutputFile(obj,filename){
@@ -27,9 +41,9 @@ function storeOutputFile(obj,filename){
     file = path.join(path.dirname(require.main.filename),'/../stores/'+filename+json_file_extention)
     jsonfile.writeFile(file, obj)
         .then(res => {
-            logger.info('Callback => success ,store/site line group write file to '+filename+' complete')
-            logger.info('Mongoose => find groupId '+obj.groupId)
+            logger.info('Update success siteId of line group to write into file '+filename+' is completed')
 
+            /*
             //Save site object into cache
             if(obj.storeId.length > 0){
                 //After group join message first time ,then message with store=XXXXXX
@@ -70,20 +84,25 @@ function storeOutputFile(obj,filename){
                     }
                 })
             }
-
+            */
         })
         .catch(error => logger.info(error))
 }
 
 function futureOutputFile(obj,filename){
-    return new Promise((resolve, reject) => {
+    return new Promise(async (resolve, reject) => {
         futureFile = path.join(path.dirname(require.main.filename),'/../future/'+filename)
+        if (!fs.existsSync(futureFile)){
+            await fs.writeFile(futureFile, JSON.stringify([]), function (err) {
+                if (err) throw err;
+            });
+        }
         jsonReadFile(futureFile)
             .then(list =>{
                 list.push(obj);
                 jsonfile.writeFile(futureFile, list , { spaces: 2} )
                     .then(res => {
-                        logger.info('Callback => success ,future append file to '+filename+' complete '+obj._id)
+                        logger.info('future order append into file '+filename+' is complete with '+obj._id)
                         resolve(res)
                     })
                     .catch(error => {
@@ -107,6 +126,10 @@ function futureOutputFile(obj,filename){
     })
 }
 
+/*
+* Deprecated not store history on files
+* */
+/*
 function orderOutputFile(obj,filename){
     var site = filename.substring(0,filename.indexOf('.'))
     storepath = path.join(path.dirname(require.main.filename),'/../orders/'+site)
@@ -133,7 +156,7 @@ function orderOutputFile(obj,filename){
                 .catch(error => logger.info('Order create file error => '+error))
         })
 }
-
+*/
 function jsonReadFile(filename){
     return new Promise(
         (resolve, reject) => {
@@ -145,4 +168,4 @@ function jsonReadFile(filename){
 
 }
 
-module.exports = { storeOutputFile ,orderOutputFile ,jsonReadFile ,removeStoreOutputFile ,removeFutureOutputFile ,futureOutputFile}
+module.exports = { storeOutputFile ,jsonReadFile ,removeStoreOutputFile ,removeFutureOutputFile ,futureOutputFile}

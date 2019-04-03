@@ -24,8 +24,9 @@ function formatDate(date) {
 }
 
 reqQueue.process('1112Delivery' ,(job,done) => {
-                            var savedOrder = job.data
-                            fileHandler.orderOutputFile(savedOrder, savedOrder.site + '.' + formatDate(Date.now()));
+                            //Queue to write sync file
+                                //var savedOrder = job.data
+                                //fileHandler.orderOutputFile(savedOrder, savedOrder.site + '.' + formatDate(Date.now()));
                             done()
                   })
 
