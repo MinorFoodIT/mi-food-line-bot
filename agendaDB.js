@@ -62,8 +62,7 @@ function futureOrderMorning(url){
     agenda.database( url ,'agendaJob2');
     agenda.define('futuremorning', async function(job, done) {
         logger.info(tag.cached_future_morning+'job is running')
-        Order.find({alertDate: {'$gte':moment().add(-5,'minutes').format('YYYY-MM-DDTHH:mm:ss.SSS') ,
-                '$lte':moment().add(5,'minutes').format('YYYY-MM-DDTHH:mm:ss.SSS')}})
+        Order.find({alertDate: {'$lte':moment().add(5,'minutes').format('YYYY-MM-DDTHH:mm:ss.SSS')} ,alerted:false ,future:true} )
             .exec()
             .then( async (future) => {
                 logger.info(tag.cached_future_morning+'found '+future.length+' docket(s)')

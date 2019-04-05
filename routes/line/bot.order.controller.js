@@ -136,7 +136,7 @@ function pushOnLine(site,order,orderType){
                             if(order.future){
                                 //One file for alert on morning
                                 var due = moment(order.dueDate)
-                                var morning = moment(due.format('YYYY-MM-DD')+' '+'06:00:00', 'YYYY-MM-DD HH:mm:ss');
+                                var morning = moment(due.format('YYYY-MM-DD')+' '+'05:50:00', 'YYYY-MM-DD HH:mm:ss');
                                 if(moment.duration(due.diff(morning)).asHours() > 0 ){
                                     var futureDay = createOrderFutureModel(order,morning)
                                     futureDay.markModified('alertDate');

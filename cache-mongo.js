@@ -119,6 +119,12 @@ mongod.getConnectionString().then((mongoUri) => {
     });
     mongoose.connection.on('connected', () => {
         logger.info(tag.mongoose+'cached connection created')
+            if (!fs.existsSync(storeFolder)){
+                fs.mkdirSync(storeFolder);
+            }
+            if (!fs.existsSync(futureFolder)){
+                fs.mkdirSync(futureFolder);
+            }
                 //console.info(mongoose.connection.readyState)
             fs.readdir(storeFolder, (err, files) => {
                 Promise.all(
