@@ -13,7 +13,6 @@ const httpStatus = require('http-status');
 const APIError = require('./routes/helpers/APIError');
 var swaggerUi = require('swagger-ui-express'), swaggerDocument = require('./swagger.json');
 var swStats = require('swagger-stats');
-var kue = require('kue');
 var kueUiExpress = require('kue-ui-express');
 var redis = require('./redis-client');
 
@@ -27,10 +26,6 @@ Promise = require('bluebird');
 var routes = require('./routes/index-route');
 
 var app = express();
-kueUiExpress(app, '/kue/', '/kue-api');
-// Mount kue JSON api
-app.use('/kue-api/', kue.app);
-app.listen(8081);
 
 if (config.env === 'development') {
     app.use(logger('dev'));

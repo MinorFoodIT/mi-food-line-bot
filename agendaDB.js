@@ -1,5 +1,6 @@
 var logger = require('./config/winston')(__filename)
 var config = require('./config/config')
+var tag = require('./config/tag')
 const Agenda = require('agenda');
 const MongoClient = require('mongodb').MongoClient;
 const Store = require('./routes/line/bot.store.model');
@@ -33,17 +34,19 @@ function futureOrder(url){
     agenda.database( url ,'agendaJob3');
         //agenda.processEvery('1 minute'); //agenda.maxConcurrency(2); //agenda.defaultConcurrency(2);
     agenda.define('futureOrderBeforeDuetime', async function(job, done) {
-        logger.info('run futureOrderBeforeDuetime')
+        logger.info(tag.trigger_futureOrder+'job is running')
         Order.getUnAlertedBetweenMinutesTime(config.alert_future_min * -1)
-            .then( (future) => {
-                logger.info('callback futureOrderBeforeDuetime')
+            .then( async (future) => {
+                logger.info(tag.trigger_futureOrder+'found '+future.length+' docket(s)')
                 if(future.length > 0) {
-                    orderCtrl.pushOnLineFutureOrder(future[0].site, future[0], 1)
+                    await Promise.all(future.map( async (docket) => {
+                        await orderCtrl.pushOnLineFutureOrder(docket.site, docket, 1)
+                     }))
                 }
                 done()
             })
             .catch( (err) =>{
-                logger.info('no result '+err)
+                logger.info(tag.trigger_futureOrder+err)
                 done()
             })
 
@@ -51,19 +54,30 @@ function futureOrder(url){
 
     agenda.on('ready', async function() {
         await agenda.start();
-        await agenda.every('1 minute', 'futureOrderBeforeDuetime');
+        await agenda.every('5 minutes', 'futureOrderBeforeDuetime');
     });
 }
 
 function futureOrderMorning(url){
     agenda.database( url ,'agendaJob2');
-    agenda.define('futuremorning', function(job, done) {
-        Future.find({alertDate: {'$gte':moment().add(-5,'minutes').format('YYYY-MM-DDTHH:mm:ss.SSS') ,
+    agenda.define('futuremorning', async function(job, done) {
+        logger.info(tag.cached_future_morning+'job is running')
+        Order.find({alertDate: {'$gte':moment().add(-5,'minutes').format('YYYY-MM-DDTHH:mm:ss.SSS') ,
                 '$lte':moment().add(5,'minutes').format('YYYY-MM-DDTHH:mm:ss.SSS')}})
             .exec()
-            .then( future => {
-                orderCtrl.pushOnLineFutureOrder(future.site,future,1)
+            .then( async (future) => {
+                logger.info(tag.cached_future_morning+'found '+future.length+' docket(s)')
+                if(future.length > 0) {
+                    await Promise.all(future.map( async (docket) => {
+                        await orderCtrl.pushOnLineFutureOrder(docket.site, docket, 1)
+                    }))
+                }
+                done()
             })
+            .catch( (err) =>{
+            logger.info(tag.cached_future_morning+err)
+            done()
+        })
     });
 
     agenda.on('ready', function() {
@@ -75,10 +89,10 @@ function futureOrderMorning(url){
 function clearHistoryOrder(url){
     agenda.database( url ,'agendaJob1');
     agenda.on('ready', function() {
-        agenda.define('clearorder', function(job, done) {
+        agenda.define('clearorder', async function(job, done) {
+            logger.info(tag.trigger_housekeeping+'job is running')
             Order.find({createdAt: {'$lte':moment().add(-1,'days').format('YYYY-MM-DDTHH:mm:ss.SSS') } ,alerted: true })
-                .deleteMany().exec()
-                                        //Order.find({createdAt: {'$lte':moment().add(-2,'hours').format('YYYY-MM-DDTHH:mm:ss.SSS') }})
+                .deleteMany().exec()     //Order.find({createdAt: {'$lte':moment().add(-2,'hours').format('YYYY-MM-DDTHH:mm:ss.SSS') }})
             done()
         });
     });

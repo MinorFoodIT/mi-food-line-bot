@@ -14,7 +14,10 @@ var tag ={
     future_alerted: '[future_alerted]'+space,
     incomming_order: '[incomming_order]'+space,
     reqQueue_1112d_error: '[reqQueue.1112Delivery error]'+space,
-    reqQueue_1112dfuture_error: '[reqQueue.1112Delivery(future) error]'+space
+    reqQueue_1112dfuture_error: '[reqQueue.1112Delivery(future) error]'+space,
+    trigger_futureOrder: '[trigger_futureOrder]'+space,
+    trigger_futureOnmorning: '[trigger_futureOnmorning]'+space,
+    trigger_housekeeping: '[trigger_housekeeping]'+space,
 }
 
 module.exports = tag
