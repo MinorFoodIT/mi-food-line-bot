@@ -31,13 +31,13 @@ logger.info(new Date(endtime))
 */
 
 function futureOrder(url){
-    agenda.database( url ,'agendaJob3');
+    agenda.database( url ,'agendaJob');
         //agenda.processEvery('1 minute'); //agenda.maxConcurrency(2); //agenda.defaultConcurrency(2);
     agenda.define('futureOrderBeforeDuetime', async function(job, done) {
-        logger.info(tag.trigger_futureOrder+'job is running')
+        //logger.info(tag.trigger_futureOrder+'job is running')
         Order.getUnAlertedBetweenMinutesTime(config.alert_future_min * -1)
             .then( async (future) => {
-                logger.info(tag.trigger_futureOrder+'found '+future.length+' docket(s)')
+                logger.info(tag.trigger_futureOrder+future.length+' docket(s) found')
                 if(future.length > 0) {
                     await Promise.all(future.map( async (docket) => {
                         await orderCtrl.pushOnLineFutureOrder(docket.site, docket, 1)
@@ -52,20 +52,24 @@ function futureOrder(url){
 
     });
 
-    agenda.on('ready', async function() {
-        await agenda.start();
-        await agenda.every('5 minutes', 'futureOrderBeforeDuetime');
-    });
-}
+    agenda.define('clearorder', async function(job, done) {
+        //logger.info(tag.trigger_housekeeping+'job is running')
+        Order.find({createdAt: {'$lte':moment().add(-1,'days').format('YYYY-MM-DDTHH:mm:ss.SSS') } ,alerted: true })
+            .deleteMany().exec()
+            .then((doc) =>{
+                logger.info(tag.trigger_housekeeping+doc.deletedCount+' docket(s) removed')
+            })
 
-function futureOrderMorning(url){
-    agenda.database( url ,'agendaJob2');
+        //Order.find({createdAt: {'$lte':moment().add(-2,'hours').format('YYYY-MM-DDTHH:mm:ss.SSS') }})
+        done()
+    });
+
     agenda.define('futuremorning', async function(job, done) {
-        logger.info(tag.cached_future_morning+'job is running')
+        //logger.info(tag.cached_future_morning+'job is running')
         Order.find({alertDate: {'$lte':moment().add(5,'minutes').format('YYYY-MM-DDTHH:mm:ss.SSS')} ,alerted:false ,future:true} )
             .exec()
             .then( async (future) => {
-                logger.info(tag.cached_future_morning+'found '+future.length+' docket(s)')
+                logger.info(tag.cached_future_morning+future.length+' docket(s) found')
                 if(future.length > 0) {
                     await Promise.all(future.map( async (docket) => {
                         await orderCtrl.pushOnLineFutureOrder(docket.site, docket, 1)
@@ -74,57 +78,18 @@ function futureOrderMorning(url){
                 done()
             })
             .catch( (err) =>{
-            logger.info(tag.cached_future_morning+err)
-            done()
-        })
+                logger.info(tag.cached_future_morning+err)
+                done()
+            })
     });
 
-    agenda.on('ready', function() {
-        agenda.start();
-        agenda.schedule('tomorrow at 6am','futuremorning');   //agenda.schedule(new Date(Date.now() + 10000), 'clearorder');
+    agenda.on('ready', async function() {
+        await agenda.start();
+        await agenda.every('5 minutes', ['futureOrderBeforeDuetime','clearorder']);
+        await agenda.schedule('tomorrow at 6am','futuremorning');   //agenda.schedule(new Date(Date.now() + 10000), 'clearorder');
     });
 }
 
-function clearHistoryOrder(url){
-    agenda.database( url ,'agendaJob1');
-    agenda.on('ready', function() {
-        agenda.define('clearorder', async function(job, done) {
-            logger.info(tag.trigger_housekeeping+'job is running')
-            Order.find({createdAt: {'$lte':moment().add(-1,'days').format('YYYY-MM-DDTHH:mm:ss.SSS') } ,alerted: true })
-                .deleteMany().exec()     //Order.find({createdAt: {'$lte':moment().add(-2,'hours').format('YYYY-MM-DDTHH:mm:ss.SSS') }})
-            done()
-        });
-    });
-
-    agenda.start();
-    agenda.every('5 minutes', 'clearorder');
-    //agenda.every('8 hours', 'clearorder');
-}
-
-/* removed
-function clearHistoryFuture(url){
-    agenda.database( url ,'agendaJob4');
-    //agenda.processEvery('1 minute');
-    agenda.maxConcurrency(2);
-    agenda.defaultConcurrency(2);
-
-    agenda.on('ready', function() {
-        agenda.define('clearfuture', function(job, done) {
-            Future.find({alertDate: {'$lte':moment().add(-7,'days').format('YYYY-MM-DDTHH:mm:ss.SSS') }})
-                .deleteMany().exec()
-
-            Future.find({alerted: true})
-                .deleteMany().exec()
-
-        });
-
-        //agenda.schedule(new Date(Date.now() + 1000), 'clearfuture');
-        agenda.every('8 hours', 'clearfuture');
-        agenda.start();
-    });
-
-}
-*/
 function viewJob(req, res, next){
     logger.info('To view processor job running')
     //agenda.on('ready', function() {
@@ -143,4 +108,4 @@ function viewJob(req, res, next){
 
 }
 
-module.exports = {futureOrder,futureOrderMorning,clearHistoryOrder,viewJob}
+module.exports = {futureOrder,viewJob}

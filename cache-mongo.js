@@ -210,15 +210,12 @@ mongod.getConnectionString().then((mongoUri) => {
                                 logger.log(tag.mongoose+'load future order error '+err)
                             })
                     })
-                ).then( () => {
-                        //JOB
-                        //agenda.futureOrderMorning(mongoUri);
-                        agenda.futureOrder(mongoUri);
-                        //agenda.clearHistoryFuture(mongoUri);
-                        //agenda.clearHistoryOrder(mongoUri)
-                    }
+                ).then( () => {}
                 )
             })
+
+        //JOB
+        agenda.futureOrder(mongoUri);
     });
     mongoose.connection.on('disconnected', () => {
         logger.info(tag.mongoose+'connection disconnected')
