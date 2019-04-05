@@ -72,7 +72,9 @@ const mongod = new MongoMemoryServer.MongoMemoryServer({
 */
 mongoose.Promise = Promise;
 
-const mongod = new MongoMemoryServer.MongoMemoryServer();
+const mongod = new MongoMemoryServer.MongoMemoryServer({instance: {
+    dbPath: 'temp'
+}});
 
 const mongooseOpts = { // options for mongoose 4.11.3 and above
     autoReconnect: true,
@@ -195,7 +197,7 @@ mongod.getConnectionString().then((mongoUri) => {
                     files.map(file => {
                         fileHandler.jsonReadFile(futureFolder+file)
                             .then(future =>{
-                                Future.create(future)
+                                Order.create(future)
                                     .then(logger.info(tag.mongoose+'load future order '+future.orderNumber +' alert date '+future.alertDate))
                                     .catch(err => logger.log(tag.mongoose+'load future order error '+err))
                             })
@@ -205,9 +207,10 @@ mongod.getConnectionString().then((mongoUri) => {
                     })
                 ).then( () => {
                         //JOB
-                        agenda.futureOrderMorning(mongoUri);
+                        //agenda.futureOrderMorning(mongoUri);
                         agenda.futureOrder(mongoUri);
-                        agenda.clearHistoryFuture(mongoUri);
+                        //agenda.clearHistoryFuture(mongoUri);
+                        //agenda.clearHistoryOrder(mongoUri)
                     }
                 )
             })

@@ -23,9 +23,10 @@
  * version 1.0.1
       * Future order
         * Keep order transaction as files by date and site
-        * Cache order transaction daily 
+        * (removed) Cache order transaction daily 
             * Filter out older than today
         * Keep future order for notification on promise date and before N minutes to due time (configurable)  
-      
- 
+        * Print all 1112delivery order to console with tag of [incomming_order] 
+        * Redis to store line group to siteId
+        * Cleaning job
       

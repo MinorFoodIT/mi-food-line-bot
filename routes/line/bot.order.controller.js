@@ -4,9 +4,8 @@ var config = require('./../../config/config')
 var tag = require('./../../config/tag')
 var logger = require('./../../config/winston')(__filename)
 const APIError = require('./../helpers/APIError');
+
 const httpStatus = require('http-status');
-var kue = require('./../../kuetask');
-var redis = require('redis')
 var client = require('./../../redis-client')
 
 var {middleware ,handlePreErr ,line_replyMessage ,line_pushMessage, line_pushMessageFuture} = require('./../helpers/line.handler')
@@ -14,7 +13,6 @@ const fileHandler = require('./../helpers/FileHandler')
 var {formatJSON , formatJSONWrap ,printText ,isUndefined ,isNull} = require('./../helpers/text.handler')
 
 //DB cache
-var mongoose = require('mongoose');
 const Order = require('./bot.order.model');
 const Store = require('./bot.store.model');
 const Future = require('./bot.future.model');
@@ -46,24 +44,22 @@ var foot_payment = require('./../../config/flex/receipt/foot.payments')
 //json query
 var jp = require('jsonpath');
 
-//const axios = require('axios');
-//axios.defaults.baseURL = 'https://api.line.me/v2/bot/message/push';
-//axios.defaults.headers.common['Authorization'] = 'Bearer '+config.channelAccessToken;
-//axios.defaults.headers.post['Content-Type'] = 'application/json';
-
-/**
- * Load user and append to req.
- */
 /*
-function load(req, res, next, id) {
-    User.get(id)
-        .then((user) => {
-            req.user = user; // eslint-disable-line no-param-reassign
-            return next();
-        })
-        .catch(e => next(e));
+* Util function
+* */
+function iterationCopy(src) {
+    let target = {};
+    for (let prop in src) {
+        if (src.hasOwnProperty(prop)) {
+            target[prop] = src[prop];
+        }
+    }
+    return target;
 }
-*/
+
+function copyDocumentObject(objectToCopy) {
+    return JSON.parse(JSON.stringify(objectToCopy))
+}
 
 function formatDate(date) {
     var d = new Date(date),
@@ -77,6 +73,17 @@ function formatDate(date) {
     return [year, month, day].join('-');
 }
 
+function getValue(jsonObject,key){
+    if(!isUndefined(jsonObject.key)){
+        return jsonObject.key;
+    }else{
+        return 'undefined';
+    }
+}
+
+/*
+* Main function
+* */
 function findLineGroup(site){
     return new Promise(
         async (resolve ,reject) => {
@@ -105,6 +112,7 @@ function findLineGroup(site){
 
 }
 
+//Control to LINE handle
 function pushOnLine(site,order,orderType){
     findLineGroup(site)
         .then(
@@ -115,13 +123,58 @@ function pushOnLine(site,order,orderType){
                     else
                         logger.info(tag.push_future_order+order.orderNumber+ ' to '+site);
 
-                    line_pushMessage(orderType,order,siteObj[0].groupId,{ type: 'flex',altText:'1112Delivery', contents: buildReceipt(order,orderType) })
+                    line_pushMessage(orderType,order,siteObj[0].groupId, { type: 'flex',altText:'1112Delivery', contents: buildReceipt(order,orderType ,false) })
+                        .then((reply_status) => { //Promise 200
+                            logger.info(tag.order_update_status+'LINE_SENT success')
+
+                            //update status
+                            Order.findOneAndUpdate({_id: order._id}, {$set: {status: 'LINE_SENT' ,alerted: true }} ,{new: true})
+                                .then( (updated) => {
+                                    logger.info(tag.order_update_status+'order '+updated.orderNumber+' '+updated.status)
+                                }).catch(err => logger.info(tag.order_update_error+err))
+
+                            //keep future object to future files
+                            if(order.future){
+                                //One file for alert on morning
+                                var due = moment(order.dueDate)
+                                var morning = moment(due.format('YYYY-MM-DD')+' '+'06:00:00', 'YYYY-MM-DD HH:mm:ss');
+                                if(moment.duration(due.diff(morning)).asHours() > 0 ){
+                                    var futureDay = createOrderFutureModel(order,morning)
+                                    futureDay.markModified('alertDate');
+                                    futureDay.save()
+                                        .then(futureMorningSaved => {
+                                            var savedfile = futureMorningSaved._id + '.json'
+                                            fileHandler.futureOutputFile(futureMorningSaved,savedfile)
+
+                                            logger.info(tag.cached_future_morning+'order '+futureMorningSaved.orderNumber+' keep alert on '+futureMorningSaved.alertDate)
+                                        })
+                                }
+                                var now = moment()
+                                var duration = moment.duration(due.diff(now));
+                                var hours = duration.asHours();
+                                var minutes = duration.asMinutes();
+                                if (hours >= 1 || minutes >= config.alert_future_min) {
+                                    var beforeDueMinute = moment(due.add((parseInt(config.alert_future_min) * -1), 'minutes').format('YYYY-MM-DD HH:mm:ss')).toDate();
+                                    var futureHour = createOrderFutureModel(order,beforeDueMinute)
+                                    futureHour.future = false //set to normal order
+                                    futureHour.markModified('alertDate');
+                                    futureHour.save()
+                                        .then(futureSaved => {
+                                            var savedfile = futureSaved._id + '.json'
+                                            fileHandler.futureOutputFile(futureSaved,savedfile)
+
+                                            logger.info(tag.cached_future_due+'order '+futureSaved.orderNumber+' keep alert on '+futureSaved.alertDate)
+                                        })
+                                }
+                            }
+                        })
                 }
             }
         )
         .catch(err => logger.info('Could not push message '+err))
 }
 
+//Called from job of future order
 function pushOnLineFutureOrder(site,order,orderType){
     findLineGroup(site)
         .then(
@@ -132,30 +185,24 @@ function pushOnLineFutureOrder(site,order,orderType){
                     else
                         logger.info(tag.push_future_order+order.orderNumber+ ' to '+site);
 
-                    line_pushMessageFuture(orderType,order,siteObj[0].groupId,{ type: 'flex',altText:'1112Delivery', contents: buildReceipt(order,orderType) })
+                    line_pushMessageFuture(orderType,order,siteObj[0].groupId,{ type: 'flex',altText:'1112Delivery', contents: buildReceipt(order,orderType ,true) })
+                        .then( (status) => {
+                            //update status alerted
+                            Order.findOneAndUpdate({_id: order._id}, {$set: {status: 'LINE_SENT',alerted: true }} ,{new: true})
+                                .then( (updated) => {
+                                    Order.find({_id: order._id}).deleteMany().exec()
+                                    //remove object future file
+                                    fileHandler.removeFutureOutputFile(order, order._id+'.json')
+                                }).catch(err => logger.info(tag.line_push_error+err))
+                        })
                 }
             }
         )
         .catch(err => logger.info('Could not push message '+err))
 }
 
-function iterationCopy(src) {
-    let target = {};
-    for (let prop in src) {
-        if (src.hasOwnProperty(prop)) {
-            target[prop] = src[prop];
-        }
-    }
-    return target;
-}
 
-function copyDocumentObject(objectToCopy) {
-    return JSON.parse(JSON.stringify(objectToCopy))
-}
-
-
-
-function buildReceipt(order,orderType) {
+function buildReceipt(order ,orderType ,notice = false) {
     var receiptRoot = JSON.parse(JSON.stringify(receiptTemplete));
     var headtext = JSON.parse(JSON.stringify(hero_head));
     var headfuture = JSON.parse(JSON.stringify(hero_future));
@@ -182,9 +229,15 @@ function buildReceipt(order,orderType) {
     receiptRoot.body.contents.push(headtext);
     receiptRoot.body.contents.push(head_spaceline);
     if(orderType == 1){
+        if(order.future) {
             //logger.info('dueDate '+order.dueDate)
-        headfuture.contents[1].text = moment(order.dueDate).format('YYYY-MM-DD HH:mm:ss');
-        receiptRoot.body.contents.push(headfuture);
+            if (notice) {
+                var futureText = 'สั่งล่วงหน้า(แจ้งเตือน)'
+                headfuture.contents[0].text = futureText
+            }
+            headfuture.contents[1].text = moment(order.dueDate).format('YYYY-MM-DD HH:mm:ss');
+            receiptRoot.body.contents.push(headfuture);
+        }
     }
     headdate.contents[1].text = formatDate(Date.now());
     receiptRoot.body.contents.push(headdate);
@@ -210,84 +263,12 @@ function buildReceipt(order,orderType) {
     return receiptRoot;
 }
 
-function getValue(jsonObject,key){
-    if(!isUndefined(jsonObject.key)){
-        return jsonObject.key;
-    }else{
-        return 'undefined';
-    }
-
-}
-
-/*
 function mapToOrder(jsonrequest,brand){
-    var orderform = '';
+    var orderfrom = '';
     var orderId = '';
     var Note = !isUndefined(jsonrequest.Note)?jsonrequest.Note:'undefined';
     if(!isUndefined(Note)){
-        orderform = Note.substring(Note.indexOf('(')+1,Note.indexOf(')'));
-            //logger.info(printText('order from :'+orderform,null));
-
-        var word = 'TPC Order:';
-        orderId = Note.substring(Note.indexOf(word)+word.length).trim();
-            //logger.info(printText('order='+orderId.trim(),null))
-    }else{
-        orderform = '1112delivery';
-    }
-
-    var mode = ''; var StoreName ='';var StoreNumber = '';
-    var dob  = ''; var items = []; var subtotal =''; var payment ='';
-    if(jsonrequest.hasOwnProperty('SDM')){
-        dob = !isUndefined(jsonrequest.SDM.DateOfTrans)?jsonrequest.SDM.DateOfTrans:'undefined'; //"DateOfTrans": "0001-01-01T00:00:00",
-        var dqlist = _.filter(jsonrequest.SDM.Entries,function(item){
-            return _.startsWith(item.Name,brand+'-');
-        })
-        for(var i=0; i< dqlist.length;i++){
-            var itemno = dqlist[i].ItemID;
-            var itemname = dqlist[i].Name;
-            var itemprice = dqlist[i].Price;
-            items.push({
-                itemNumber: itemno,
-                itemName: itemname,
-                amount: itemprice
-            })
-                //logger.info(printText(itemname+'   '+itemprice ,null));
-        }
-        mode = jsonrequest.SDM.OrderName.substring(0,jsonrequest.SDM.OrderName.indexOf(' - '));
-        StoreName = jsonrequest.SDM.StoreName;
-        StoreNumber = jsonrequest.SDM.StoreNumber.substring(jsonrequest.SDM.StoreNumber.length-4);
-        subtotal = jsonrequest.SDM.GrossTotal;
-        payment = !isNull(jsonrequest.SDM.Payments)?jsonrequest.SDM.Payments:'none';
-
-    }
-
-    const order = new Order({
-        mode: mode,
-        brand: brand, //'DQ'
-        site: brand+StoreNumber,
-        orderFrom: orderform,
-        orderNumber: orderId,
-        userName: jsonrequest.DriverName,
-        //mobileNumber: '',
-        storeCode: StoreNumber,
-        transactionTime: dob,
-        items: items,
-        subtotal: subtotal,
-        payment: payment,
-        status: ''
-    });
-
-    //to do create each item model
-    return order;
-}
-*/
-
-function mapToOrder(jsonrequest,brand){
-    var orderform = '';
-    var orderId = '';
-    var Note = !isUndefined(jsonrequest.Note)?jsonrequest.Note:'undefined';
-    if(!isUndefined(Note)){
-        orderform = Note.substring(Note.indexOf('(')+1,Note.indexOf(')'));
+        orderfrom = Note.substring(Note.indexOf('(')+1,Note.indexOf(')'));
             //logger.info(printText('order from :'+orderform,null));
 
         var word = 'TPC Order:';
@@ -299,7 +280,7 @@ function mapToOrder(jsonrequest,brand){
 
     var orderType = jsonrequest.SDM.OrderType
     var mode = '' , StoreName ='' ,StoreNumber = '';
-    var dob  = '', items = [] ,subtotal ='' , payment ='' , dueDate , discount = '';
+    var dob  = '', items = [] ,subtotal ='' , payment ='' , dueDate , discount = ''
     if(jsonrequest.hasOwnProperty('SDM')){
         dueDate = jsonrequest.SDM.DueTime;
         discount = jsonrequest.SDM.DiscountTotal;
@@ -325,51 +306,54 @@ function mapToOrder(jsonrequest,brand){
         payment = !isNull(jsonrequest.SDM.Payments)?jsonrequest.SDM.Payments:'none';
 
     }
+    const order = new Order({
+        dueDate: dueDate,
+        future: orderType==1?true:false,
+        alerted: false,
+        mode: mode,
+        brand: brand, //'DQ'
+        site: brand+StoreNumber,
+        orderFrom: orderfrom,
+        orderNumber: orderId,
+        userName: jsonrequest.DriverName,
+        //mobileNumber: '',
+        storeCode: StoreNumber,
+        transactionTime: dob,
+        items: items,
+        subtotal: subtotal,
+        payment: payment,
+        discount: discount,
+        status: ''
+    });
 
-    if(orderType == 1) {
-        const future = new Future({
-            dueDate: dueDate,
-            alert: false,
-            mode: mode,
-            brand: brand, //'DQ'
-            site: brand + StoreNumber,
-            orderFrom: orderform,
-            orderNumber: orderId,
-            userName: jsonrequest.DriverName,
-            //mobileNumber: '',
-            storeCode: StoreNumber,
-            transactionTime: dob,
-            items: items,
-            subtotal: subtotal,
-            payment: payment,
-            discount: discount,
-            status: ''
-        });
-
-        //to do create each item model
-        return future;
-    }else{
-        const order = new Order({
-            mode: mode,
-            brand: brand, //'DQ'
-            site: brand+StoreNumber,
-            orderFrom: orderform,
-            orderNumber: orderId,
-            userName: jsonrequest.DriverName,
-            //mobileNumber: '',
-            storeCode: StoreNumber,
-            transactionTime: dob,
-            items: items,
-            subtotal: subtotal,
-            payment: payment,
-            discount: discount,
-            status: ''
-        });
-
-        //to do create each item model
-        return order;
-    }
+    //to do create each item model
+    return order;
 }
+
+function createOrderFutureModel(obj,alertDate){
+    const order = new Order({
+        dueDate: obj.dueDate,
+        future: obj.future,
+        alertDate: alertDate,
+        alerted: false,
+        mode: obj.mode,
+        brand: obj.brand, //'DQ'
+        site: obj.site,
+        orderFrom: obj.orderFrom,
+        orderNumber: obj.orderNumber,
+        userName: obj.userName,
+        storeCode: obj.storeCode,
+        transactionTime: obj.transactionTime,
+        items: obj.items,
+        subtotal: obj.subtotal,
+        payment: obj.payment,
+        discount: obj.discount,
+        status: ''
+    });
+
+    return order
+}
+
 /**
  * Order push to store
  * @param req
@@ -384,7 +368,6 @@ function ordering(req, res, next) {
             var orderType = jsonrequest.SDM.OrderType
 
             var order = mapToOrder(jsonrequest, brand);
-
             order.save()
                 .then(savedOrder => {
                     logger.info(tag.incomming_order+ JSON.stringify(savedOrder));
@@ -392,80 +375,6 @@ function ordering(req, res, next) {
                         //fileHandler.orderOutputFile(savedOrder, order.site + '.' + formatDate(Date.now()));
                     pushOnLine(order.site, savedOrder ,orderType);
 
-                    var job = kue.reqQueue.create('1112Delivery',savedOrder)
-                                    .priority('normal').attempts(2)
-                                    .removeOnComplete( true )
-                                    .save(err =>{
-                                        if(err) {
-                                            logger.info(tag.reqQueue_1112d_error+ err)
-                                        }
-                                    })
-                    job.log({orderId: savedOrder.orderNumber ,brand: savedOrder.brand })
-
-                    //future order
-                    if(orderType == 1){
-                            //logger.info(orderType)
-                        //Filter futrue
-                        var future = mapToOrder(jsonrequest, brand);
-                            //logger.info(future.dueDate)
-                        var now = moment()
-                        var due = moment(future.dueDate)
-                        var duration = moment.duration(due.diff(now));
-                        var days = duration.asDays();
-                        if(days >= 1){
-                            var futureDay = mapToOrder(jsonrequest, brand);
-                                //logger.info(due.format('YYYY-MM-DD HH:mm:ss'))
-                            var morning = moment(due.format('YYYY-MM-DD')+' '+'06:00:00', 'YYYY-MM-DD HH:mm:ss').toDate();
-                                //logger.info(morning)
-                            futureDay.alertDate = morning
-                            futureDay.save()
-                                .then(futureSaved => {
-                                    //Save alert Morning
-                                    var job = kue.reqQueue.create('1112Delivery(future)',futureSaved)
-                                        .priority('normal').attempts(2)
-                                        .removeOnComplete( true )
-                                        .save(err =>{
-                                            if(err) {
-                                                logger.info(tag.reqQueue_1112dfuture_error+ err)
-                                            }
-
-                                            var hours = duration.asHours();
-                                            if (hours >= 1) {
-                                                var futureHour = mapToOrder(jsonrequest, brand);
-                                                var beforeHour = moment(due.add((parseInt(config.alert_future_min) * -1), 'minutes').format('YYYY-MM-DD HH:mm:ss')).toDate();
-                                                futureHour.alertDate = beforeHour
-                                                futureHour.save()
-                                                    .then(futureSaved => {
-                                                        //save alert before time of due
-                                                        var job = kue.reqQueue.create('1112Delivery(future)',futureSaved)
-                                                            .priority('normal').attempts(2)
-                                                            .removeOnComplete( true )
-                                                            .save(err => {
-                                                                if (err) {
-                                                                    logger.info(tag.reqQueue_1112dfuture_error+ err)
-                                                                }
-                                                            })
-                                                        job.log({orderId: futureSaved.orderNumber ,brand: futureSaved.brand ,dueDate: futureSaved.alertDate })
-
-                                                        fileHandler.futureOutputFile(futureSaved, 'future.json')
-                                                    })
-                                            }
-
-                                        })
-                                    job.log({orderId: futureSaved.orderNumber ,brand: futureSaved.brand ,dueDate: futureSaved.alertDate })
-
-                                    /*
-                                    Promise.all(
-                                        fileHandler.futureOutputFile(futureSaved, 'future.json')
-                                    ).then( () => {
-
-                                    })
-                                    */
-                                })
-                        }
-
-                    }
-                    //res.json(savedOrder)
                     res.json({
                         code: httpStatus.OK,
                         message: httpStatus[httpStatus.OK],
@@ -497,11 +406,13 @@ function findOrder(req, res, next) {
 
 function findFuture(req, res, next) {
     var brand = req.params.brand.toUpperCase();
-    Future.getBrand(brand)
+    Order.getFutureByBrand(brand)
         .then(orders =>{
             res.json(orders)
         })
-        .catch(e => next(e));
+        .catch(e => {
+            next(e)
+        });
 }
 
 module.exports = { ordering ,findOrder ,findFuture ,pushOnLine ,pushOnLineFutureOrder ,findLineGroup};

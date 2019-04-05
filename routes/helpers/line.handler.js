@@ -100,46 +100,49 @@ function line_replyMessage(token ,contentMessage){
 
 function line_pushMessage(orderType,orderSaved,token ,contentMessage){
         //logger.info(JSON.stringify(contentMessage))
-    client.pushMessage(token,contentMessage)
-        .then( () => {
-            Order.findOneAndUpdate({_id: orderSaved._id}, {$set: {status: "LINE_SENT"}})
-                .then().catch(err => logger.info(tag.line_push_error+err))
-        })
-        .catch((err) => {
-            Order.findOneAndUpdate({_id: orderSaved._id}, {$set: {status: "LINE_FAIL"}})
-                .then().catch(err => logger.info(tag.line_push_error+err))
-            if (err instanceof HTTPError) {
-                logger.error(err.statusCode);
-            }
-        });
+    return new Promise( (resolve ,reject) => {
+        client.pushMessage(token,contentMessage)
+            .then( () => {
+                //status 200 ok
+                resolve('200')
+            })
+            .catch((err) => {
+                if (err instanceof HTTPError) {
+                    logger.error(err.statusCode);
+                }
+                reject(err)
+            });
+    })
 }
+
 
 function line_pushMessageFuture(orderType,orderSaved,token ,contentMessage){
         //logger.info(JSON.stringify(contentMessage))
-    client.pushMessage(token,contentMessage)
-        .then( () => {
-            if(orderType == 1){
-                Future.findOneAndUpdate({_id: orderSaved._id}, {$set: {status: "LINE_SENT",alerted: true }})
-                    .then( async () => {
-                        Future.find({_id: orderSaved._id}).deleteMany().exec()
-                        //remove objectId from file
-                        await fileHandler.removeFutureOutputFile(orderSaved, 'future')
-                    }).catch(err => logger.info(tag.line_push_error+err))
-            }
-        })
-        .catch((err) => {
-            if (err instanceof HTTPError) {
-                logger.error(err.statusCode);
-            }
+    return new Promise( (resolve ,reject) => {
+        client.pushMessage(token,contentMessage)
+            .then( () => {
+                //status 200 ok
+                resolve('200')
 
-            if(orderType == 1){
-                Future.findOneAndUpdate({_id: orderSaved._id}, {$set: {status: "LINE_FAIL",alerted: false }})
-                    .then(
-                        //remove objectId from file
-                        //fileHandler.removeFutureOutputFile(orderSaved,'future')
-                    ).catch(err => logger.info(tag.line_push_error+err))
-            }
-        });
+                if(orderType == 1){
+
+                }
+            })
+            .catch((err) => {
+                if (err instanceof HTTPError) {
+                    logger.error(err.statusCode);
+                }
+                reject(err)
+
+                if(orderType == 1){
+                    Future.findOneAndUpdate({_id: orderSaved._id}, {$set: {status: "LINE_FAIL",alerted: false }})
+                        .then(
+                            //remove objectId from file
+                            //fileHandler.removeFutureOutputFile(orderSaved,'future')
+                        ).catch(err => logger.info(tag.line_push_error+err))
+                }
+            });
+    })
 }
 
 
