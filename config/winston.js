@@ -15,6 +15,7 @@ var logger = caller => {
             winston.format.simple()
         ),
         transports: [
+            /*
             new winston.transports.File({
                 level: 'info',
                 filename: __dirname + '/../log/app.log',
@@ -24,6 +25,7 @@ var logger = caller => {
                 maxFiles: 5,
                 colorize: false,
             }),
+            */
             new (winston.transports.Console)({
                 json: true,
                 format: winston.format.printf(info => `${new Date().toISOString()} | ${info.label} | ${info.level} | ${info.message}`),

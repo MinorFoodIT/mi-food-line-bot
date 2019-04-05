@@ -1,13 +1,23 @@
 var os = require('os');
+var logger = require('./config/winston')(__filename)
+var tag = require('./config/tag')
 var mongoose = require('mongoose');
 const Store = require('./routes/line/bot.store.model');
+const Order = require('./routes/line/bot.order.model');
+
 var MongoMemoryServer = require('mongodb-memory-server');
 
 const storeFolder = './stores/';
+const orderFolder = './orders/';
+const futureFolder = './future/';
 const fs = require('fs');
 
 const fileHandler = require('./routes/helpers/FileHandler')
 
+var moment = require('moment');
+var dateNow = moment().format('YYYY-MM-DD');
+
+var agenda = require('./agendaDB');
 /**
  * In memory database
  */
@@ -41,10 +51,29 @@ const mongod = new MongoMemoryServer.MongoMemoryServer({
 
 });
 */
+/*
+{
+    instance: {
+        port: 10050,
+        ip: '127.0.0.1',
+        dbName: 'IMDB',
+        dbPath: 'temp',
+        storageEngine: `devnull`, // by default `ephemeralForTest`, available engines: [ 'devnull', 'ephemeralForTest', 'mmapv1', 'wiredTiger' ]
+        debug: false, // by default false
+        //replSet: 'no', // by default no replica set, replica set name
+        auth: false // by default `mongod` is started with '--noauth', start `mongod` with '--auth'
+        //args: string[], // by default no additional arguments, any additional command line arguments for `mongod` `mongod` (ex. ['--notablescan'])
+    },
+    debug: true,
+    autoStart: true
 
+}
+*/
 mongoose.Promise = Promise;
 
-const mongod = new MongoMemoryServer.MongoMemoryServer();
+const mongod = new MongoMemoryServer.MongoMemoryServer({instance: {
+    dbPath: 'temp'
+}});
 
 const mongooseOpts = { // options for mongoose 4.11.3 and above
     autoReconnect: true,
@@ -89,60 +118,104 @@ mongod.getConnectionString().then((mongoUri) => {
         throw new Error(`Mongoose: unable to connect to database: ${mongoUri}`);
     });
     mongoose.connection.on('connected', () => {
-        console.info('Mongoose: connection created')
-        //console.info(mongoose.connection.readyState)
+        logger.info(tag.mongoose+'cached connection created')
+                //console.info(mongoose.connection.readyState)
+            fs.readdir(storeFolder, (err, files) => {
+                Promise.all(
+                    files.map(file => {
+                        //console.log(file);
+                        fileHandler.jsonReadFile(storeFolder+file)
+                            .then(storeGroup => {
+                                //instance model
+                                var store = new Store(
+                                    {
+                                        site: storeGroup.storeId,
+                                        groupId: storeGroup.groupId
+                                    })
+                                /*
+                                store.save(function (err,savedStore) {
+                                    if(err) console.error('Mongoose: error insert store')
+                                    console.info('Mongoose: insert store '+storeGroup.storeId+',groupId '+storeGroup.groupId)
+                                })
+                                */
 
-        fs.readdir(storeFolder, (err, files) => {
-            files.forEach(file => {
-                //console.log(file);
-                fileHandler.storeReadFile(storeFolder+file)
-                    .then(storeGroup => {
-                        //instance model
-                        var store = new Store(
-                            {
-                                site: storeGroup.storeId,
-                                groupId: storeGroup.groupId
-                            })
-                        /*
-                        store.save(function (err,savedStore) {
-                            if(err) console.error('Mongoose: error insert store')
-                            console.info('Mongoose: insert store '+storeGroup.storeId+',groupId '+storeGroup.groupId)
-                        })
-                        */
-
-                        store.save()
-                            .then(savedStore => {
-                                console.info('Mongoose: insert store '+storeGroup.storeId+',groupId '+storeGroup.groupId)
-                                return null;
+                                store.save()
+                                    .then(savedStore => {
+                                        logger.info(tag.mongoose+'load store '+storeGroup.storeId+',groupId '+storeGroup.groupId)
+                                        return null;
+                                    })
+                                    .catch(err => {
+                                        logger.error(tag.mongoose+'store inserted error '+err)
+                                        return null;
+                                    })
+                                    .finally(function(){return null;})
                             })
                             .catch(err => {
-                                console.error('Mongoose: error insert store')
-                                return null;
+                                logger.error(tag.mongoose+'store inserted error '+err)
                             })
-                            .finally(function(){return null;})
-
-
                     })
-                    .catch()
-            });
-        })
+                )
+            })
 
-        /*
-        defindStore()
-            .then(
-                StoreSchema => {
-                    //var Store = mongoose.model('Store', StoreSchema);
+            /*
+             * Deprecated not store order to file
+             *//*
+            fs.readdir(orderFolder, (err, folders) => {
+                Promise.all(
+                    folders.map(folder => {
+                        fs.readdir(orderFolder+folder , (err, files) => {
+                            Promise.all(
+                            files.map(file => {
+                                if(file.indexOf(dateNow) > -1){
+                                    //load only current date
+                                    fileHandler.jsonReadFile(orderFolder+folder+'/'+file)
+                                        .then( listorder =>{
+                                            listorder.map(order => {
+                                                Order.create(order)
+                                                    .then(logger.info(tag.mongoose+'insert order '+order.orderNumber))
+                                                    .catch(err => logger.log(tag.mongoose+'order inserted error '+err))
+                                            })
+                                        })
+                                        .catch(err => {
+                                            logger.log(tag.mongoose+'order inserted error '+err)
+                                        })
+                                }
+                            })
+                            )
+                        })
+                    })
+                ).then(
+                    //assign job
+                    agenda.clearHistoryOrder(mongoUri)
+                )
+            })
+            */
 
-
-
-                }
-            )
-            .catch(err => console.info('Mongoose: Store model error :'+err))
-        */
-
+            fs.readdir(futureFolder, (err, files) => {
+                Promise.all(
+                    files.map(file => {
+                        fileHandler.jsonReadFile(futureFolder+file)
+                            .then(future =>{
+                                Order.create(future)
+                                    .then(logger.info(tag.mongoose+'load future order '+future.orderNumber +' alert date '+future.alertDate))
+                                    .catch(err => logger.log(tag.mongoose+'load future order error '+err))
+                            })
+                            .catch(err => {
+                                logger.log(tag.mongoose+'load future order error '+err)
+                            })
+                    })
+                ).then( () => {
+                        //JOB
+                        //agenda.futureOrderMorning(mongoUri);
+                        agenda.futureOrder(mongoUri);
+                        //agenda.clearHistoryFuture(mongoUri);
+                        //agenda.clearHistoryOrder(mongoUri)
+                    }
+                )
+            })
     });
     mongoose.connection.on('disconnected', () => {
-        console.info('Mongoose: connection disconnected')
+        logger.info(tag.mongoose+'connection disconnected')
     });
 
 });

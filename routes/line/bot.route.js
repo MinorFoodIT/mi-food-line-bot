@@ -21,8 +21,11 @@ router.route('/1112delivery/:brand')
     /** POST /:brandId/:orderId - Create new order push message */
     .post(orderCtrl.ordering);
 
-router.route('/1112delivery/:brand/:order')
+router.route('/1112delivery/:brand/:order/order')
     .get(orderCtrl.findOrder);
+
+router.route('/1112delivery/:brand/future')
+    .get(orderCtrl.findFuture);
 
 module.exports = router;
 

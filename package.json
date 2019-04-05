@@ -1,5 +1,5 @@
 {
-  "name": "untitled",
+  "name": "mi-food-line-bot",
   "version": "0.0.0",
   "private": true,
   "scripts": {
@@ -7,6 +7,7 @@
   },
   "dependencies": {
     "@line/bot-sdk": "^6.4.0",
+    "agenda": "^2.0.2",
     "async": "^2.6.1",
     "axios": "^0.18.0",
     "bluebird": "3.5.1",
@@ -24,12 +25,17 @@
     "joi": "^14.3.1",
     "jsonfile": "^5.0.0",
     "jsonpath": "^1.0.0",
+    "kue-ui-express": "^1.1.1",
     "lodash": "^4.17.11",
     "method-override": "^2.3.10",
+    "moment": "^2.24.0",
     "mongodb": "^3.1.13",
     "mongoose": "5.4.7",
+    "mongoose-timezone": "^1.1.0",
     "morgan": "~1.9.0",
+    "redis": "^2.8.0",
     "string-builder": "^0.1.6",
+    "swagger-stats": "^0.95.7",
     "swagger-ui-express": "^4.0.2",
     "winston": "^3.2.1"
   },

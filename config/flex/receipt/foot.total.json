@@ -1,12 +1,12 @@
 {
   "type": "box",
   "layout": "horizontal",
-  "margin": "sm",
+  "margin": "xl",
   "spacing": "sm",
   "contents": [
     {
       "type": "text",
-      "text": "SubTotal",
+      "text": "Total",
       "size": "sm",
       "color": "#555555",
       "flex": 0

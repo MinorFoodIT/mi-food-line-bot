@@ -12,6 +12,10 @@ var config = require('./config/config')
 const httpStatus = require('http-status');
 const APIError = require('./routes/helpers/APIError');
 var swaggerUi = require('swagger-ui-express'), swaggerDocument = require('./swagger.json');
+var swStats = require('swagger-stats');
+var kue = require('kue');
+var kueUiExpress = require('kue-ui-express');
+var redis = require('./redis-client');
 
 const expressWinston = require('express-winston');
 const winstonInstance = require('winston');
@@ -23,10 +27,16 @@ Promise = require('bluebird');
 var routes = require('./routes/index-route');
 
 var app = express();
+kueUiExpress(app, '/kue/', '/kue-api');
+// Mount kue JSON api
+app.use('/kue-api/', kue.app);
+app.listen(8081);
 
 if (config.env === 'development') {
     app.use(logger('dev'));
 }
+
+app.use(swStats.getMiddleware({swaggerSpec:swaggerDocument}));
 
 // parse body params and attache them to req.body
 app.use(bodyParser.json());
@@ -58,10 +68,12 @@ if (config.env === 'development') {
                 maxFiles: 5,
                 colorize: false,
             }),
+            /*
             new (winstonInstance.transports.Console)({
                 json: true,
                 colorize: true
             })
+            */
         ],
         format: winstonInstance.format.combine(
             winstonInstance.format(function dynamicContent(info, opts) {
@@ -80,7 +92,7 @@ if (config.env === 'development') {
 app.use(express.static(path.join(__dirname, 'public'))); //put favicon.ico on public
 app.disable('etag'); //Cache and 304 not modified ,http header with same request
 app.use('/api', routes);
-//app.get('/favicon.ico', (req, res) => res.status(204));
+    //app.get('/favicon.ico', (req, res) => res.status(204));
 
 //swagger
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerDocument));

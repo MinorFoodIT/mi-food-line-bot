@@ -6,16 +6,16 @@
   "contents": [
     {
       "type": "text",
-      "text": "SubTotal",
-      "size": "sm",
-      "color": "#555555",
+      "text": "** ส่ังล่วงหน้า **",
+      "size": "xs",
+      "color": "#009999",
       "flex": 0
     },
     {
       "type": "text",
-      "text": "0",
+      "text": "",
       "size": "sm",
-      "color": "#111111",
+      "color": "#009999",
       "align": "end"
     }
   ]

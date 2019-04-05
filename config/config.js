@@ -33,7 +33,8 @@ const config = {
     env: envVars.NODE_ENV,
     port: envVars.PORT,
     mongooseDebug: envVars.MONGOOSE_DEBUG,
-    jwtSecret: envVars.JWT_SECRET
+    jwtSecret: envVars.JWT_SECRET,
+    alert_future_min: envVars.alert_future_min
 }
 
 module.exports = config;
