@@ -4,7 +4,6 @@ var tag = require('./config/tag')
 var mongoose = require('mongoose');
 const Store = require('./routes/line/bot.store.model');
 const Order = require('./routes/line/bot.order.model');
-const Future = require('./routes/line/bot.future.model');
 
 var MongoMemoryServer = require('mongodb-memory-server');
 

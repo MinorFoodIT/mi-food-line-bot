@@ -99,12 +99,12 @@ function futureOutputFile(obj,filename){
                         resolve(res)
                     })
                     .catch(error => {
-                        logger.info('future.json append file error => '+error)
+                        logger.info(' append file error => '+error)
                         reject(error)
                     })
             })
             .catch(err =>{
-                logger.info('future.json file error => '+err)
+                logger.info(' file error => '+err)
                 reject(err)
 
                 //var list = [];
@@ -113,7 +113,7 @@ function futureOutputFile(obj,filename){
                 //    .then(res => {
                 //        logger.info('Callback => success ,future create file to '+filename+' complete')
                 //    })
-                //    .catch(error => logger.info('future.json create file error => '+error))
+                //    .catch(error => logger.info(' create file error => '+error))
 
             })
         */

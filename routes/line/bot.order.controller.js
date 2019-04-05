@@ -15,7 +15,6 @@ var {formatJSON , formatJSONWrap ,printText ,isUndefined ,isNull} = require('./.
 //DB cache
 const Order = require('./bot.order.model');
 const Store = require('./bot.store.model');
-const Future = require('./bot.future.model');
 
 //Fleax message
 var receiptTemplete = require('../../config/flex/receipt')

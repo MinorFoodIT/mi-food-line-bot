@@ -25,7 +25,6 @@
     "joi": "^14.3.1",
     "jsonfile": "^5.0.0",
     "jsonpath": "^1.0.0",
-    "kue": "^0.11.6",
     "kue-ui-express": "^1.1.1",
     "lodash": "^4.17.11",
     "method-override": "^2.3.10",

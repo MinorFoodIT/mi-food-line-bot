@@ -10,7 +10,6 @@ var logger = require('./../../config/winston')(__filename)
 const fileHandler = require('./../helpers/FileHandler')
 
 const Order = require('./../line/bot.order.model');
-const Future = require('./../line/bot.future.model');
 
 /**
  * Line check header signature
@@ -133,14 +132,6 @@ function line_pushMessageFuture(orderType,orderSaved,token ,contentMessage){
                     logger.error(err.statusCode);
                 }
                 reject(err)
-
-                if(orderType == 1){
-                    Future.findOneAndUpdate({_id: orderSaved._id}, {$set: {status: "LINE_FAIL",alerted: false }})
-                        .then(
-                            //remove objectId from file
-                            //fileHandler.removeFutureOutputFile(orderSaved,'future')
-                        ).catch(err => logger.info(tag.line_push_error+err))
-                }
             });
     })
 }
