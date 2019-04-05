@@ -1,5 +1,6 @@
 stores/*
 orders/*
+temp
 node_modules
 .idea
 log
