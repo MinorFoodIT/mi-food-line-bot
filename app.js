@@ -13,7 +13,6 @@ const httpStatus = require('http-status');
 const APIError = require('./routes/helpers/APIError');
 var swaggerUi = require('swagger-ui-express'), swaggerDocument = require('./swagger.json');
 var swStats = require('swagger-stats');
-var kueUiExpress = require('kue-ui-express');
 var redis = require('./redis-client');
 
 const expressWinston = require('express-winston');
@@ -127,6 +126,5 @@ app.use((err, req, res, next) => // eslint-disable-line no-unused-vars
         stack: config.env === 'development' ? err.stack : {}
     })
 );
-
 
 module.exports = app;
