@@ -103,7 +103,11 @@ function viewJob(req, res, next){
                 })
                 res.json(jobs)
             })
-            .catch(err => next(err))
+            .catch(err => {
+                //const apiErr = new APIError(err)
+                logger.error(err.message)
+                next(err)
+            })
     //})
 
 }

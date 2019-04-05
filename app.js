@@ -14,6 +14,7 @@ const APIError = require('./routes/helpers/APIError');
 var swaggerUi = require('swagger-ui-express'), swaggerDocument = require('./swagger.json');
 var swStats = require('swagger-stats');
 var redis = require('./redis-client');
+var moment = require('moment')
 
 const expressWinston = require('express-winston');
 const winstonInstance = require('winston');
@@ -52,6 +53,7 @@ if (config.env === 'development') {
     expressWinston.responseWhitelist.push('body');
     app.use(expressWinston.logger({
         transports: [
+            /*
             new winstonInstance.transports.File({
                 level: 'info',
                 filename: __dirname + '/log/access.log',
@@ -62,12 +64,13 @@ if (config.env === 'development') {
                 maxFiles: 5,
                 colorize: false,
             }),
-            /*
+            */
             new (winstonInstance.transports.Console)({
                 json: true,
-                colorize: true
+                colorize: true,
+                format: winstonInstance.format.printf(info => `${moment().tz('Asia/Bangkok').format()} | ${info.label} | ${info.level} | ${info.message}`)
             })
-            */
+
         ],
         format: winstonInstance.format.combine(
             winstonInstance.format(function dynamicContent(info, opts) {
@@ -114,17 +117,34 @@ app.use((req, res, next) => {
 // log error in winston transports except when executing test suite
 if (config.env !== 'test') {
     app.use(expressWinston.errorLogger({
-        winstonInstance
+        transports: [
+            new (winstonInstance.transports.Console)({
+                json: true,
+                colorize: true,
+                format: winstonInstance.format.printf(info => `${moment().tz('Asia/Bangkok').format()} | ${info.label} | ${info.level} | ${info.message}`)
+            })
+        ],
+        format: winstonInstance.format.combine(
+            winstonInstance.format(function dynamicContent(info, opts) {
+                info.message = '' + info.message;
+                return info;
+            })(),
+            winstonInstance.format.simple()
+        ),
+        meta: true, // optional: log meta data about request (defaults to true)
+        msg: 'HTTP {{req.method}} {{req.url}} {{res.statusCode}} {{res.responseTime}}ms',
+        colorStatus: true // Color the status code (default green, 3XX cyan, 4XX yellow, 5XX red).
     }));
+
 }
 
 // error handler, send stacktrace only during development
-app.use((err, req, res, next) => // eslint-disable-line no-unused-vars
+app.use((err, req, res, next) => {// eslint-disable-line no-unused-vars
     res.status(err.status).json({
         code: err.status,
         message: err.isPublic ? err.message : httpStatus[err.status],
         stack: config.env === 'development' ? err.stack : {}
     })
-);
+});
 
 module.exports = app;
