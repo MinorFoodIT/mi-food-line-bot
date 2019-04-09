@@ -27,6 +27,9 @@ router.route('/1112delivery/:brand/:order/order')
 router.route('/1112delivery/:brand/future')
     .get(orderCtrl.findFuture);
 
+router.route('/1112delivery/store')
+    .get(orderCtrl.listFileStore);
+
 module.exports = router;
 
 

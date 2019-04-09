@@ -87,20 +87,36 @@ function findLineGroup(site){
     return new Promise(
         async (resolve ,reject) => {
             //Find in regis
-            const linegroup = await client.get(site);
-            if(linegroup){
-                var siteObj = {
-                    groupId: linegroup,
-                    userId: "",
-                    type: "group",
-                    storeId: site,
-                    storeName: ""
-                }
-                resolve(siteObj)
-            }
+            //logger.info('[lookup_redis]')
+            await client.keys('*')
+                .then(async (keys) =>{
+                    Promise.all(
+                        keys.map(async key =>{
+                            await client.get(key)
+                                .then( (value) =>{
+                                    var storeId = JSON.parse(value).storeId
+                                    if( typeof storeId !== 'undefined' ){
+                                        var siteObj = [{
+                                            groupId: key,
+                                            userId: "",
+                                            type: "group",
+                                            storeId: site,
+                                            storeName: ""
+                                        }]
+                                        //logger.info('[lookup_redis] resolve')
+                                        resolve(siteObj)
+                                    }
+                                })
+                                .catch((err) =>{})
+                        })
+                    )
+                })
+                .catch( err =>{
+                })
 
             //Find from file cached in memory
-            Store.find({ 'site': site }, 'groupId', function (err, siteObj) {
+            await Store.find({ 'site': site }, 'groupId', function (err, siteObj) {
+                //logger.info('[lookup_file] '+siteObj)
                 //if (err) return handleError(err);
                 if(err) reject(err)
                 resolve(siteObj)
@@ -118,9 +134,9 @@ function pushOnLine(site,order,orderType){
             siteObj => {
                 if(siteObj.length > 0){
                     if(orderType == 1)
-                        logger.info(tag.push_order+order.orderNumber+ ' to '+site);
-                    else
                         logger.info(tag.push_future_order+order.orderNumber+ ' to '+site);
+                    else
+                        logger.info(tag.push_order+order.orderNumber+ ' to '+site);
 
                     line_pushMessage(orderType,order,siteObj[0].groupId, { type: 'flex',altText:'1112Delivery', contents: buildReceipt(order,orderType ,false) })
                         .then((reply_status) => { //Promise 200
@@ -376,7 +392,8 @@ function ordering(req, res, next) {
 
                     res.json({
                         code: httpStatus.OK,
-                        message: httpStatus[httpStatus.OK],
+                        //message: httpStatus[httpStatus.OK],
+                        message: savedOrder.mode + ' order '+savedOrder.orderNumber+ ' sent.' ,
                         stack:{}
                     })
                 })
@@ -414,4 +431,14 @@ function findFuture(req, res, next) {
         });
 }
 
-module.exports = { ordering ,findOrder ,findFuture ,pushOnLine ,pushOnLineFutureOrder ,findLineGroup};
+function listFileStore(req, res, next){
+    Store.list()
+        .then(stores => {
+            res.json(stores)
+        })
+        .catch(e => {
+            next(e)
+        });
+}
+
+module.exports = { ordering ,findOrder ,findFuture ,listFileStore ,pushOnLine ,pushOnLineFutureOrder ,findLineGroup};

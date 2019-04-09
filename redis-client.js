@@ -25,6 +25,7 @@ var client = redis.createClient({
 });
 const util = require('util');
 client.get = util.promisify(client.get);
+client.keys = util.promisify(client.keys);
 
 client.on('connect', function() {
     logger.info(tag.redis+'client connected');
