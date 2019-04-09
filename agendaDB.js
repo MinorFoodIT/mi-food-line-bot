@@ -86,7 +86,7 @@ function futureOrder(url){
     agenda.on('ready', async function() {
         await agenda.start();
         await agenda.every('5 minutes', ['futureOrderBeforeDuetime','clearorder']);
-        await agenda.schedule('tomorrow at 6am','futuremorning');   //agenda.schedule(new Date(Date.now() + 10000), 'clearorder');
+        await agenda.every('0 6 * * *','futuremorning');   //agenda.schedule(new Date(Date.now() + 10000), 'clearorder');
     });
 }
 
