@@ -1,7 +1,8 @@
 var tag = require('./config/tag')
 var logger = require('./config/winston')(__filename)
 var redis = require('redis');
-const redisUrl = 'redis://127.0.0.1:6379';
+//const redisUrl = 'redis://127.0.0.1:6379';
+const redisUrl = 'redis://172.17.0.1:6379';
 var client = redis.createClient({
     url: redisUrl,
     retry_strategy: function (options) {
