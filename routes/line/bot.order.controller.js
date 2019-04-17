@@ -16,6 +16,9 @@ var {formatJSON , formatJSONWrap ,printText ,isUndefined ,isNull} = require('./.
 const Order = require('./bot.order.model');
 const Store = require('./bot.store.model');
 
+//Mysql
+var mysqldb = require('./../../mysql-client');
+
 //Fleax message
 var receiptTemplete = require('../../config/flex/receipt')
 var head_logo = require('./../../config/flex/receipt/head.logo')
@@ -141,6 +144,25 @@ function pushOnLine(site,order,orderType){
                     line_pushMessage(orderType,order,siteObj[0].groupId, { type: 'flex',altText:'1112Delivery', contents: buildReceipt(order,orderType ,false) })
                         .then((reply_status) => { //Promise 200
                             logger.info(tag.order_update_status+'LINE_SENT success')
+                            //Insert to db
+                            mysqldb((err,connection) => {
+                                var post  = {
+                                    order_no: order.orderNumber,
+                                    mode: order.mode,
+                                    brand: order.brand,
+                                    site: order.site,
+                                    subtotal: order.subtotal,
+                                    dueDate: order.dueDate >= new Date('2019-01-01')?moment(order.dueDate).format('YYYY-MM-DD HH:mm:ss'):null,
+                                    future: order.future?1:0,
+                                    alerted_Date:  order.alertDate >= new Date('2019-01-01')?moment(order.alertDate).format('YYYY-MM-DD HH:mm:ss'):null,
+                                    status: 'LINE_SENT'
+                                };
+                                connection.query('INSERT into orders SET ?',post , function (error, results, fields){
+                                    if (error) {
+                                        logger.info('[Insert db error] '+error)
+                                    };
+                                });
+                            })
 
                             //update status
                             Order.findOneAndUpdate({_id: order._id}, {$set: {status: 'LINE_SENT' ,alerted: true }} ,{new: true})
