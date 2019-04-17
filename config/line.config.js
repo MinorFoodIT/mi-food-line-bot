@@ -1,7 +1,7 @@
 const config = {
     /** LINE **/
-    channelAccessToken: 'KyV3sX6ysRZPii906XjaVTsurxz8/rbQR1zuxB32Sj8ohnVyRqiTtMP/FytosZBMPjowN1HN8zaLL3MJvClejoLqF2y0P7HRwHV4Ocsck797VT+239yUc8cPLOmIxB9p4IihGNefDkHJc0O5MCTRVgdB04t89/1O/w1cDnyilFU=',
-    channelSecret: 'bf7ef0a0798a584827199de6169e303f'
+    channelAccessToken: 'u49wjznc3MSuYVUmVm/rJCZ1+Pw8wXB3wYCOx6WRG8u/4y07PQo7EV/iLZZjcmyNOgcI9nVH93IWb6mko4XUmpivrujzYYq4AGksna31vnttF+CJta9ca8vNLV/12k0WLTT+ePDyJTWxpnH0TzQNRgdB04t89/1O/w1cDnyilFU=',
+    channelSecret: '34300572b2e42246caf84d439b2bc6aa'
 }
 
 
